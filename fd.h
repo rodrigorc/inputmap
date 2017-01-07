@@ -40,5 +40,10 @@ inline bool test_bit(int bit, const unsigned char *ptr)
     return (ptr[bit >> 3] >> (bit & 7)) & 1;
 }
 
+template <size_t N, typename T>
+constexpr size_t countof(T (&a)[N])
+{
+    return N;
+}
 
 #endif /* FD_H_INCLUDED */

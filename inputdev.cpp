@@ -16,7 +16,7 @@ ValueId parse_value_id(const std::string &name)
 }
 
 InputDevice::InputDevice(const IniSection &ini, FD fd)
-    :m_fd(std::move(fd))
+    :m_fd(std::move(fd)), m_num_evs(0)
 {
     m_name = ini.find_single_value("name");
     if (m_name.empty())
@@ -62,10 +62,12 @@ InputDevice::InputDevice(const IniSection &ini, FD fd)
 
 PollResult InputDevice::on_poll(int event)
 {
-    input_event evs[32];
     if (event & EPOLLIN)
     {
-        int res = read(m_fd.get(), &evs, sizeof(evs));
+        int free_evs = countof(m_evs) - m_num_evs;
+        if (free_evs == 0)
+            throw std::runtime_error("input buffer overflow");
+        int res = read(m_fd.get(), &m_evs[m_num_evs], free_evs * sizeof(input_event));
         if (res == -1)
         {
             if (errno == EINTR)
@@ -74,13 +76,17 @@ PollResult InputDevice::on_poll(int event)
             throw std::runtime_error("input read");
         }
 
-        int nr = res / sizeof(input_event);
-        bool sync = false;
-        for (int i = 0; i < nr; ++i)
+        m_num_evs += res / sizeof(input_event);
+        if (m_evs[m_num_evs - 1].type != EV_SYN)
         {
-            sync = sync || on_input(evs[i]);
+            printf("no EV_SYN, buffering\n");
+            return PollResult::None;
         }
-        return sync ? PollResult::Sync : PollResult::None;
+
+        for (int i = 0; i < m_num_evs; ++i)
+            on_input(m_evs[i]);
+        m_num_evs = 0;
+        return PollResult::Sync;
     }
     else if (event & EPOLLERR)
     {
@@ -91,29 +97,24 @@ PollResult InputDevice::on_poll(int event)
         return PollResult::None;
 }
 
-bool InputDevice::on_input(input_event &ev)
+void InputDevice::on_input(input_event &ev)
 {
-    InputStatus &st = m_status[!m_idx];
     switch (ev.type)
     {
     case EV_SYN:
         //printf("SYN %d %d\n", ev.code, ev.value);
-        m_status[m_idx] = m_status[!m_idx];
-        memset(&m_status[m_idx].rel, 0, sizeof(m_status[m_idx].rel));
-        m_idx = !m_idx;
-        //printf("REL %d %d\n",  m_status[m_idx].rel[REL_X], m_status[m_idx].rel[REL_Y]);
-        return true;
+        break;
     case EV_ABS:
         //printf("ABS %d %d\n", ev.code, ev.value);
-        st.abs[ev.code] = ev.value;
+        m_status.abs[ev.code] = ev.value;
         break;
     case EV_REL:
         //printf("REL %d %d\n", ev.code, ev.value);
-        st.rel[ev.code] += ev.value;
+        m_status.rel[ev.code] += ev.value;
         break;
     case EV_KEY:
         //printf("KEY %d %d\n", ev.code, ev.value);
-        st.key[ev.code] = ev.value;
+        m_status.key[ev.code] = ev.value;
         break;
     case EV_MSC:
         //printf("MSC %d %d\n", ev.code, ev.value);
@@ -122,20 +123,22 @@ bool InputDevice::on_input(input_event &ev)
         //printf("??? %d %d %d\n", ev.type, ev.code, ev.value);
         break;
     }
-    return false;
 }
 
 int InputDevice::get_value(const ValueId &id) const
 {
-    const InputStatus &st = m_status[m_idx];
     switch (id.type)
     {
     case EV_REL:
-        return st.rel[id.code];
+        return m_status.rel[id.code];
     case EV_KEY:
-        return st.key[id.code];
+        return m_status.key[id.code];
     default:
         return 0;
     }
 }
 
+void InputDevice::flush()
+{
+    memset(m_status.rel, 0, sizeof(m_status.rel));
+}

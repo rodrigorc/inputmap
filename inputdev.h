@@ -57,15 +57,16 @@ public:
     PollResult on_poll(int event);
 
     int get_value(const ValueId &id) const;
+    void flush();
 
 private:
     FD m_fd;
     std::string m_name;
+    input_event m_evs[128];
+    int m_num_evs;
+    InputStatus m_status;
 
-    bool on_input(input_event &ev);
-
-    InputStatus m_status[2];
-    int m_idx;
+    void on_input(input_event &ev);
 };
 
 #endif /* INPUTDEV_H_INCLUDED */

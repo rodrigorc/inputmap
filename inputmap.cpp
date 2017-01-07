@@ -13,12 +13,6 @@
 #include "inputdev.h"
 #include "outputdev.h"
 
-template <size_t N, typename T>
-constexpr size_t countof(T (&a)[N])
-{
-    return N;
-}
-
 void help(const char *name)
 {
     fprintf(stderr, "Usage %s file.ini\n", name);
@@ -120,8 +114,7 @@ int main2(int argc, char **argv)
             exit(EXIT_FAILURE);
         }
 
-        std::vector<std::shared_ptr<InputDevice>> deletes;
-        bool sync = false;
+        std::vector<std::shared_ptr<InputDevice>> deletes, synced;
         for (int i = 0; i < res; ++i)
         {
             epoll_event &ev = epoll_evs[i];
@@ -135,16 +128,21 @@ int main2(int argc, char **argv)
                 deletes.push_back(input->shared_from_this());
                 break;
             case PollResult::Sync:
-                sync = true;
+                synced.push_back(input->shared_from_this());
                 break;
             }
         }
-        for (auto d : deletes)
+        for (auto &d : deletes)
             inputs.remove(d);
 
-        if (sync)
+        if (!synced.empty())
+        {
             for (auto &d : outputs)
                 d.sync();
+            for (auto &d : synced)
+                d->flush();
+        }
+
     }
     return EXIT_SUCCESS;
 }
