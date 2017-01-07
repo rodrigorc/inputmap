@@ -1,17 +1,24 @@
-#include "inputdev.h"
 #include <sys/epoll.h>
+#include "inputdev.h"
+#include "event-codes.h"
 
 ValueId parse_value_id(const std::string &name)
 {
-    if (name == "REL_X")
-        return ValueId(EV_REL, REL_X);
-    if (name == "REL_Y")
-        return ValueId(EV_REL, REL_Y);
-    if (name == "BTN_LEFT")
-        return ValueId(EV_KEY, BTN_LEFT);
-    if (name == "BTN_RIGHT")
-        return ValueId(EV_KEY, BTN_RIGHT);
-
+    for (const auto &kv : g_key_names)
+    {
+        if (kv.name && kv.name == name)
+            return ValueId(EV_KEY, kv.id);
+    }
+    for (const auto &kv : g_rel_names)
+    {
+        if (kv.name && kv.name == name)
+            return ValueId(EV_REL, kv.id);
+    }
+    for (const auto &kv : g_abs_names)
+    {
+        if (kv.name && kv.name == name)
+            return ValueId(EV_ABS, kv.id);
+    }
     throw std::runtime_error("unknown value name " + name);
 }
 
@@ -39,25 +46,38 @@ InputDevice::InputDevice(const IniSection &ini, FD fd)
     test(ioctl(m_fd.get(), EVIOCGPROP(sizeof(buf)), buf), "EVIOCGPROP"); 
     printf("    prop='%s'\n", buf);
 
-#define BIT(b) if (test_bit(b, (unsigned char*)buf)) printf(" %s",#b);
     test(ioctl(m_fd.get(), EVIOCGBIT(EV_REL, sizeof(buf)), buf), "EV_REL");
-    printf("    rel=%02X-%02X-%02X: ", buf[0], buf[1], buf[2]);
-    BIT(REL_X) BIT(REL_Y) BIT(REL_Z) BIT(REL_RX) BIT(REL_RY) BIT(REL_RZ) BIT(REL_HWHEEL) BIT(REL_DIAL) BIT(REL_WHEEL) BIT(REL_MISC)
-        printf("\n");
+    printf("    rel: ");
+    for (const auto &kv : g_rel_names)
+    {
+        if (!kv.name)
+            continue;
+        if (test_bit(kv.id, (unsigned char*)buf))
+            printf(" %s", kv.name);
+    }
+    printf("\n");
 
     test(ioctl(m_fd.get(), EVIOCGBIT(EV_ABS, sizeof(buf)), buf), "EV_ABS");
-    printf("    abs=%02X-%02X-%02X: ", buf[0], buf[1], buf[2]);
-    BIT(ABS_X) BIT(ABS_Y) BIT(ABS_Z) BIT(ABS_RX) BIT(ABS_RY) BIT(ABS_RZ) BIT(ABS_THROTTLE) BIT(ABS_RUDDER) BIT(ABS_WHEEL) BIT(ABS_GAS)
-        BIT(ABS_BRAKE) BIT(ABS_HAT0X) BIT(ABS_HAT0Y) BIT(ABS_HAT1X) BIT(ABS_HAT1Y) BIT(ABS_HAT2X) BIT(ABS_HAT2Y) BIT(ABS_HAT3X) BIT(ABS_HAT3Y)
-        BIT(ABS_PRESSURE) BIT(ABS_DISTANCE) BIT(ABS_TILT_X) BIT(ABS_TILT_Y) BIT(ABS_TOOL_WIDTH) BIT(ABS_VOLUME) BIT(ABS_MISC)
-        printf("\n");
+    printf("    abs: ");
+    for (const auto &kv : g_abs_names)
+    {
+        if (!kv.name)
+            continue;
+        if (test_bit(kv.id, (unsigned char*)buf))
+            printf(" %s", kv.name);
+    }
+    printf("\n");
 
     test(ioctl(m_fd.get(), EVIOCGBIT(EV_KEY, sizeof(buf)), buf), "EV_KEY");
-    printf("    key=%02X-%02X-%02X: ", buf[0], buf[1], buf[2]);
-    for (int k = 0; k < KEY_MAX; ++k)
-        if (test_bit(k, (unsigned char*)buf)) printf(" 0x%X", k);
+    printf("    key: ");
+    for (const auto &kv : g_key_names)
+    {
+        if (!kv.name)
+            continue;
+        if (test_bit(kv.id, (unsigned char*)buf))
+            printf(" %s", kv.name);
+    }
     printf("\n");
-#undef BIT
 }
 
 PollResult InputDevice::on_poll(int event)

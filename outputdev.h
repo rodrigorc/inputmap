@@ -38,6 +38,7 @@ private:
     std::vector<std::weak_ptr<InputDevice>> m_inputs;
     ValueRef m_rel[REL_CNT];
     ValueRef m_key[KEY_CNT];
+    ValueRef m_abs[ABS_CNT];
 
     std::shared_ptr<InputDevice> find_input(const std::string &name, IInputByName *inputFinder);
     ValueRef parse_ref(const std::string &desc, IInputByName &inputFinder);

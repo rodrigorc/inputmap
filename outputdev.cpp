@@ -1,7 +1,8 @@
-#include "outputdev.h"
-#include "inputdev.h"
 #include <linux/uinput.h>
 #include <algorithm>
+#include "outputdev.h"
+#include "inputdev.h"
+#include "event-codes.h"
 
 OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
 {
@@ -36,38 +37,61 @@ OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
     test(ioctl(m_fd.get(), UI_SET_KEYBIT, BTN_TRIGGER), "BTN_TRIGGER");
     */
 
-    m_rel[REL_X] = parse_ref(ini.find_single_value("REL_X"), inputFinder);
-    m_rel[REL_Y] = parse_ref(ini.find_single_value("REL_Y"), inputFinder);
-
     bool has_rel = false;
-    for (int i = 0; i < REL_CNT; ++i)
+    for (const auto &kv : g_rel_names)
     {
-        if (m_rel[i])
+        if (!kv.name)
+            continue;
+        std::string ref = ini.find_single_value(kv.name);
+        if (ref.empty())
+            continue;
+        m_rel[kv.id] = parse_ref(ref, inputFinder);
+        if (!has_rel)
         {
-            if (!has_rel)
-            {
-                test(ioctl(m_fd.get(), UI_SET_EVBIT, EV_REL), "EV_REL");
-                has_rel = true;
-            }
-            test(ioctl(m_fd.get(), UI_SET_RELBIT, i), "UI_SET_RELBIT");
+            test(ioctl(m_fd.get(), UI_SET_EVBIT, EV_REL), "EV_REL");
+            has_rel = true;
         }
+        test(ioctl(m_fd.get(), UI_SET_RELBIT, kv.id), "UI_SET_RELBIT");
     }
 
-    m_key[BTN_LEFT] = parse_ref(ini.find_single_value("BTN_LEFT"), inputFinder);
-    m_key[BTN_RIGHT] = parse_ref(ini.find_single_value("BTN_RIGHT"), inputFinder);
-
     bool has_key = false;
-    for (int i = 0; i < KEY_CNT; ++i)
+    for (const auto &kv : g_key_names)
     {
-        if (m_key[i])
+        if (!kv.name)
+            continue;
+        std::string ref = ini.find_single_value(kv.name);
+        if (ref.empty())
+            continue;
+        m_key[kv.id] = parse_ref(ref, inputFinder);
+        if (!has_key)
         {
-            if (!has_key)
-            {
-                test(ioctl(m_fd.get(), UI_SET_EVBIT, EV_KEY), "EV_KEY");
-                has_key = true;
-            }
-            test(ioctl(m_fd.get(), UI_SET_KEYBIT, i), "UI_SET_KEYBIT");
+            test(ioctl(m_fd.get(), UI_SET_EVBIT, EV_KEY), "EV_KEY");
+            has_key = true;
         }
+        test(ioctl(m_fd.get(), UI_SET_KEYBIT, kv.id), "UI_SET_KEYBIT");
+    }
+
+    bool has_abs = false;
+    for (const auto &kv : g_abs_names)
+    {
+        if (!kv.name)
+            continue;
+        std::string ref = ini.find_single_value(kv.name);
+        if (ref.empty())
+            continue;
+        m_abs[kv.id] = parse_ref(ref, inputFinder);
+        if (!has_abs)
+        {
+            test(ioctl(m_fd.get(), UI_SET_EVBIT, EV_ABS), "EV_ABS");
+            has_abs = true;
+        }
+        //test(ioctl(m_fd.get(), UI_SET_ABSBIT, kv.id), "UI_SET_ABSBIT");
+        uinput_abs_setup abs = {};
+        abs.absinfo.minimum = -127;
+        abs.absinfo.maximum = 127;
+        abs.absinfo.value = 0;
+        abs.code = kv.id;
+        test(ioctl(m_fd.get(), UI_ABS_SETUP, &abs), "abs");
     }
 
     test(ioctl(m_fd.get(), UI_DEV_CREATE, 0), "UI_DEV_CREATE");
@@ -130,6 +154,8 @@ void OutputDevice::sync()
         do_event(evs, EV_REL, i, m_rel[i]);
     for (int i = 0; i < KEY_CNT; ++i)
         do_event(evs, EV_KEY, i, m_key[i]);
+    for (int i = 0; i < ABS_CNT; ++i)
+        do_event(evs, EV_ABS, i, m_abs[i]);
 
     if (!evs.empty())
     {
