@@ -57,6 +57,7 @@ public:
 
     virtual PollResult on_poll(int event) =0;
     virtual int get_value(const ValueId &id) const =0;
+    virtual input_absinfo get_absinfo(int code) const =0;
     virtual void flush() =0;
 
 protected:
@@ -76,6 +77,7 @@ public:
 
     virtual PollResult on_poll(int event);
     virtual int get_value(const ValueId &id) const;
+    virtual input_absinfo get_absinfo(int code) const;
     virtual void flush();
 private:
     input_event m_evs[128];
@@ -94,9 +96,10 @@ public:
 
     virtual PollResult on_poll(int event);
     virtual int get_value(const ValueId &id) const;
+    virtual input_absinfo get_absinfo(int code) const;
     virtual void flush();
 private:
-    int16_t m_x, m_y;
+    uint8_t m_data[64];
 };
 
 #endif /* INPUTDEV_H_INCLUDED */

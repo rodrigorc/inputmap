@@ -86,11 +86,10 @@ OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
             has_abs = true;
         }
         //test(ioctl(m_fd.get(), UI_SET_ABSBIT, kv.id), "UI_SET_ABSBIT");
+        auto dev = m_abs[kv.id].device.lock();
         uinput_abs_setup abs = {};
-        abs.absinfo.minimum = -32767;
-        abs.absinfo.maximum = 32767;
-        abs.absinfo.value = 0;
         abs.code = kv.id;
+        abs.absinfo = dev->get_absinfo(kv.id);
         test(ioctl(m_fd.get(), UI_ABS_SETUP, &abs), "abs");
     }
 

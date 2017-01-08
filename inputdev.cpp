@@ -158,6 +158,13 @@ int InputDeviceEvent::get_value(const ValueId &id) const
     }
 }
 
+input_absinfo InputDeviceEvent::get_absinfo(int code) const
+{
+    input_absinfo res;
+    test(ioctl(fd(), EVIOCGABS(code), &res), "EVIOCGABS");
+    return res;
+}
+
 void InputDeviceEvent::flush()
 {
     memset(m_status.rel, 0, sizeof(m_status.rel));
@@ -173,22 +180,31 @@ std::shared_ptr<InputDevice> InputDeviceEventCreate(const IniSection &ini, const
 InputDeviceSteam::InputDeviceSteam(const IniSection &ini, FD fd)
     :InputDevice(ini, std::move(fd))
 {
+    memset(m_data, 0, sizeof(m_data));
 }
 
-static uint16_t B2(uint8_t *a, size_t x)
+static uint16_t U2(const uint8_t *m, size_t x)
 {
-    return a[x] | (a[x+1] << 8);
+    return m[x] | (m[x+1] << 8);
 }
-static uint32_t B4(uint8_t *a, size_t x)
+static int16_t S2(const uint8_t *m, size_t x)
 {
-    uint32_t b1 = B2(a, x);
-    uint32_t b2 = B2(a, x+2);
+    return U2(m, x);
+}
+/*static uint32_t U4(const uint8_t *m, size_t x)
+{
+    uint32_t b1 = U2(m, x);
+    uint32_t b2 = U2(m, x+2);
     return b1 | (b2 << 16);
 }
-static uint32_t B3(uint8_t *a, size_t x)
+static int32_t S4(const uint8_t *m, size_t x)
 {
-    uint32_t b1 = B2(a, x);
-    uint32_t b2 = a[x+2];
+    return U4(m, x);
+}*/
+static uint32_t U3(const uint8_t *m, size_t x)
+{
+    uint32_t b1 = U2(m, x);
+    uint32_t b2 = m[x+2];
     return b1 | (b2 << 16);
 }
 
@@ -213,27 +229,152 @@ PollResult InputDeviceSteam::on_poll(int event)
     if (type != 1) //input
         return PollResult::None;
 
-    m_x = B2(data, 16);
-    m_y = -B2(data, 18);
+    memcpy(m_data, data, sizeof(m_data));
 
     return PollResult::Sync;
 }
 
+enum SteamButton
+{
+    RightTriggerFull= 0x000001,
+    LeftTriggerFull = 0x000002,
+    RightShoulder   = 0x000004,
+    LeftShoulder    = 0x000008,
+    Y               = 0x000010,
+    B               = 0x000020,
+    X               = 0x000040,
+    A               = 0x000080,
+    North           = 0x000100,
+    East            = 0x000200,
+    West            = 0x000400,
+    South           = 0x000800,
+    Prev            = 0x001000,
+    Steam           = 0x002000,
+    Next            = 0x004000,
+    LeftPedal       = 0x008000,
+    RightPedal      = 0x010000,
+    LeftClick       = 0x020000,
+    RightClick      = 0x040000,
+    LeftTouch       = 0x080000,
+    RightTouch      = 0x100000,
+    Unknown200000   = 0x200000,
+    Stick           = 0x400000,
+    Unknown800000   = 0x800000,    
+};
+
+int int_sign(int x)
+{
+    if (x < 0)
+        return -1;
+    if (x > 0)
+        return 1;
+    return 0;
+}
 int InputDeviceSteam::get_value(const ValueId &id) const
 {
+    uint32_t btn = U3(m_data, 8);
+
     switch (id.type)
     {
     case EV_ABS:
         switch (id.code)
         {
         case ABS_X:
-            return m_x;
+            return S2(m_data, 16);
         case ABS_Y:
-            return m_y;
+            return -S2(m_data, 18);
+        case ABS_BRAKE:
+            return U2(m_data, 24);
+        case ABS_GAS:
+            return U2(m_data, 26);
+        case ABS_RX:
+            return S2(m_data, 20);
+        case ABS_RY:
+            return -S2(m_data, 22);
+        case ABS_HAT0X:
+            if (btn & SteamButton::LeftClick)
+                return int_sign(S2(m_data, 16) * 3 / 32768);
+            else
+                return 0;
+        case ABS_HAT0Y:
+            if (btn & SteamButton::LeftClick)
+                return int_sign(-S2(m_data, 18) * 3 / 32768);
+            else
+                return 0;
+        case ABS_HAT1X:
+            if (btn & SteamButton::RightClick)
+                return int_sign(S2(m_data, 20) * 3 / 32768);
+            else
+                return 0;
+        case ABS_HAT1Y:
+            if (btn & SteamButton::RightClick)
+                return int_sign(-S2(m_data, 22) * 3 / 32768);
+            else
+                return 0;
+        }
+        break;
+    case EV_KEY:
+        switch (id.code)
+        {
+        case BTN_SELECT:
+            return !!(btn & SteamButton::Prev);
+        case BTN_START:
+            return !!(btn & SteamButton::Next);
+        case BTN_MODE:
+            return !!(btn & SteamButton::Steam);
+        case BTN_BASE:
+            return !!(btn & SteamButton::X);
+        case BTN_BASE2:
+            return !!(btn & SteamButton::Y);
+        case BTN_BASE3:
+            return !!(btn & SteamButton::A);
+        case BTN_BASE4:
+            return !!(btn & SteamButton::B);
+        case BTN_NORTH:
+            return !!(btn & SteamButton::North);
+        case BTN_SOUTH:
+            return !!(btn & SteamButton::South);
+        case BTN_EAST:
+            return !!(btn & SteamButton::East);
+        case BTN_WEST:
+            return !!(btn & SteamButton::West);
+        case BTN_TL:
+            return !!(btn & SteamButton::LeftShoulder);
+        case BTN_TR:
+            return !!(btn & SteamButton::RightShoulder);
+        case BTN_TL2:
+            return !!(btn & SteamButton::LeftTriggerFull);
+        case BTN_TR2:
+            return !!(btn & SteamButton::RightTriggerFull);
+        case BTN_GEAR_DOWN:
+            return !!(btn & SteamButton::LeftPedal);
+        case BTN_GEAR_UP:
+            return !!(btn & SteamButton::RightPedal);
+        case BTN_THUMBL:
+            return !!(btn & SteamButton::Stick);
+        /*
+        case LeftClick
+        case RightClick
+        case LeftTouch
+        case RightTouch
+        case Unknown200000
+        case Unknown800000
+        */
         }
         break;
     }
+    //int16_t ux = B2(buf, 58);
+    //int16_t uy = B2(buf, 60);
     return 0;
+}
+
+input_absinfo InputDeviceSteam::get_absinfo(int code) const
+{
+    input_absinfo res {};
+    res.value = get_value(ValueId(EV_ABS, code));
+    res.minimum = -32767;
+    res.maximum = 32767;
+    return res;
 }
 
 void InputDeviceSteam::flush()
