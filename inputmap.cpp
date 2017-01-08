@@ -66,9 +66,16 @@ int main2(int argc, char **argv)
         std::string id = s->find_single_value("ID");
         printf("id='%s'\n", id.c_str());
 
-        std::string dev = "/dev/input/by-id/" + id;
-        FD fd { FD_open(dev.c_str(), O_RDWR|O_CLOEXEC) };
-        inputs.push_back(std::make_shared<InputDevice>(*s, std::move(fd)));
+        if (id == "steam" || id == "Steam" || id == "STEAM")
+        {
+            auto dev = InputDeviceSteamCreate(*s);
+            inputs.push_back(dev);
+        }
+        else
+        {
+            auto dev = InputDeviceEventCreate(*s, id);
+            inputs.push_back(dev);
+        }
     }
 
     InputFinder<decltype(inputs.begin())> inputFinder(inputs.begin(), inputs.end());
@@ -119,6 +126,11 @@ int main2(int argc, char **argv)
         {
             epoll_event &ev = epoll_evs[i];
             auto input = static_cast<InputDevice*>(ev.data.ptr);
+            if (ev.events & EPOLLERR)
+            {
+                deletes.push_back(input->shared_from_this());
+                continue;
+            }
             auto res = input->on_poll(ev.events);
             switch (res)
             {

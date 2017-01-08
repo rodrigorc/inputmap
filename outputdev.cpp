@@ -87,8 +87,8 @@ OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
         }
         //test(ioctl(m_fd.get(), UI_SET_ABSBIT, kv.id), "UI_SET_ABSBIT");
         uinput_abs_setup abs = {};
-        abs.absinfo.minimum = -127;
-        abs.absinfo.maximum = 127;
+        abs.absinfo.minimum = -32767;
+        abs.absinfo.maximum = 32767;
         abs.absinfo.value = 0;
         abs.code = kv.id;
         test(ioctl(m_fd.get(), UI_ABS_SETUP, &abs), "abs");

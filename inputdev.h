@@ -49,24 +49,54 @@ enum class PollResult
 class InputDevice : public std::enable_shared_from_this<InputDevice>
 {
 public:
-    explicit InputDevice(const IniSection &ini, FD fd);
+    virtual ~InputDevice() {}
     const std::string &name() const noexcept
     { return m_name; }
     int fd() const noexcept
     { return m_fd.get(); }
-    PollResult on_poll(int event);
 
-    int get_value(const ValueId &id) const;
-    void flush();
+    virtual PollResult on_poll(int event) =0;
+    virtual int get_value(const ValueId &id) const =0;
+    virtual void flush() =0;
+
+protected:
+    InputDevice(const IniSection &ini, FD fd);
 
 private:
     FD m_fd;
     std::string m_name;
+};
+
+std::shared_ptr<InputDevice> InputDeviceEventCreate(const IniSection &ini, const std::string &id);
+
+class InputDeviceEvent : public InputDevice
+{
+public:
+    explicit InputDeviceEvent(const IniSection &ini, FD fd);
+
+    virtual PollResult on_poll(int event);
+    virtual int get_value(const ValueId &id) const;
+    virtual void flush();
+private:
     input_event m_evs[128];
     int m_num_evs;
     InputStatus m_status;
 
     void on_input(input_event &ev);
+};
+
+std::shared_ptr<InputDevice> InputDeviceSteamCreate(const IniSection &ini);
+
+class InputDeviceSteam : public InputDevice
+{
+public:
+    explicit InputDeviceSteam(const IniSection &ini, FD fd);
+
+    virtual PollResult on_poll(int event);
+    virtual int get_value(const ValueId &id) const;
+    virtual void flush();
+private:
+    int16_t m_x, m_y;
 };
 
 #endif /* INPUTDEV_H_INCLUDED */
