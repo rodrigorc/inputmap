@@ -99,7 +99,10 @@ public:
     virtual input_absinfo get_absinfo(int code) const;
     virtual void flush();
 private:
+    mutable int16_t m_x0, m_y0, m_z0, m_rz0;
     uint8_t m_data[64];
+
+    void send_cmd(const std::initializer_list<uint8_t> &data) const;
 };
 
 #endif /* INPUTDEV_H_INCLUDED */

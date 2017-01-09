@@ -124,9 +124,9 @@ ValueRef OutputDevice::parse_ref(const std::string &desc, IInputByName &inputFin
     std::string sdev = desc.substr(0, dot);
     std::string saxis = desc.substr(dot + 1);
     auto dev = find_input(sdev, &inputFinder);
-    auto value_id = parse_value_id(saxis);
     if (!dev)
         throw std::runtime_error("unknown device in ref: " + desc);
+    auto value_id = parse_value_id(saxis);
     return ValueRef{dev, value_id};
 }
 

@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <sys/epoll.h>
 #include <libudev.h>
+#include <linux/hidraw.h>
 #include "inputdev.h"
 #include "event-codes.h"
 
@@ -44,13 +45,13 @@ InputDeviceEvent::InputDeviceEvent(const IniSection &ini, FD the_fd)
     input_id iid;
     test(ioctl(fd(), EVIOCGID, &iid), "EVIOCGID");
     printf("    iid=%d %04x:%04x %d\n", iid.bustype, iid.vendor, iid.product, iid.version);
-    test(ioctl(fd(), EVIOCGNAME(sizeof(buf)), buf), "EVIOCGNAME"); 
+    test(ioctl(fd(), EVIOCGNAME(sizeof(buf)), buf), "EVIOCGNAME");
     printf("    name='%s'\n", buf);
-    test(ioctl(fd(), EVIOCGPHYS(sizeof(buf)), buf), "EVIOCGPHYS"); 
+    test(ioctl(fd(), EVIOCGPHYS(sizeof(buf)), buf), "EVIOCGPHYS");
     printf("    phys='%s'\n", buf);
-    test(ioctl(fd(), EVIOCGUNIQ(sizeof(buf)), buf), "EVIOCGUNIQ"); 
+    test(ioctl(fd(), EVIOCGUNIQ(sizeof(buf)), buf), "EVIOCGUNIQ");
     printf("    uniq='%s'\n", buf);
-    test(ioctl(fd(), EVIOCGPROP(sizeof(buf)), buf), "EVIOCGPROP"); 
+    test(ioctl(fd(), EVIOCGPROP(sizeof(buf)), buf), "EVIOCGPROP");
     printf("    prop='%s'\n", buf);
 
     test(ioctl(fd(), EVIOCGBIT(EV_REL, sizeof(buf)), buf), "EV_REL");
@@ -177,10 +178,25 @@ std::shared_ptr<InputDevice> InputDeviceEventCreate(const IniSection &ini, const
     return std::make_shared<InputDeviceEvent>(ini, std::move(fd));
 }
 
-InputDeviceSteam::InputDeviceSteam(const IniSection &ini, FD fd)
-    :InputDevice(ini, std::move(fd))
+InputDeviceSteam::InputDeviceSteam(const IniSection &ini, FD the_fd)
+    :InputDevice(ini, std::move(the_fd))
 {
     memset(m_data, 0, sizeof(m_data));
+
+    //enable accelerometer
+    send_cmd({0x87, 0x03, 0x30, 0x14, 0x00});
+    //disable accelerometer
+    //send_cmd({0x87, 0x03, 0x30, 0x00, 0x00});
+    //enable key emulation
+    //send_cmd({0x85});
+    //enable mouse & cursor emulation
+    //send_cmd({0x8e});
+    //disable mouse emulation
+    send_cmd({0x87, 0x03, 0x08, 0x07, 0x00});
+    //disable cursor emulation
+    send_cmd({0x87, 0x03, 0x07, 0x07, 0x00});
+    //disable key emulation
+    send_cmd({0x81});
 }
 
 static uint16_t U2(const uint8_t *m, size_t x)
@@ -189,7 +205,10 @@ static uint16_t U2(const uint8_t *m, size_t x)
 }
 static int16_t S2(const uint8_t *m, size_t x)
 {
-    return U2(m, x);
+    int16_t res = U2(m, x);
+    if (res == -32768) //or else you will get weird values when negating this value
+        res = -32767;
+    return res;
 }
 /*static uint32_t U4(const uint8_t *m, size_t x)
 {
@@ -238,28 +257,28 @@ enum SteamButton
 {
     RightTriggerFull= 0x000001,
     LeftTriggerFull = 0x000002,
-    RightShoulder   = 0x000004,
-    LeftShoulder    = 0x000008,
-    Y               = 0x000010,
-    B               = 0x000020,
-    X               = 0x000040,
-    A               = 0x000080,
+    RightBumper     = 0x000004,
+    LeftBumper      = 0x000008,
+    BtnY            = 0x000010,
+    BtnB            = 0x000020,
+    BtnX            = 0x000040,
+    BtnA            = 0x000080,
     North           = 0x000100,
     East            = 0x000200,
     West            = 0x000400,
     South           = 0x000800,
-    Prev            = 0x001000,
+    Menu            = 0x001000,
     Steam           = 0x002000,
-    Next            = 0x004000,
-    LeftPedal       = 0x008000,
-    RightPedal      = 0x010000,
-    LeftClick       = 0x020000,
-    RightClick      = 0x040000,
-    LeftTouch       = 0x080000,
-    RightTouch      = 0x100000,
+    Escape          = 0x004000,
+    LeftBack        = 0x008000,
+    RightBack       = 0x010000,
+    LeftPadClick    = 0x020000,
+    RightPadClick   = 0x040000,
+    LeftPadTouch    = 0x080000,
+    RightPadTouch   = 0x100000,
     Unknown200000   = 0x200000,
     Stick           = 0x400000,
-    Unknown800000   = 0x800000,    
+    LeftPadAndJoy   = 0x800000,
 };
 
 int int_sign(int x)
@@ -274,15 +293,32 @@ int InputDeviceSteam::get_value(const ValueId &id) const
 {
     uint32_t btn = U3(m_data, 8);
 
+    /*
+    if (btn & SteamButton::RightPadTouch)
+        send_cmd({0x8f, 0x08, 0x00, 0x64, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00});
+    if (btn & SteamButton::LeftPadTouch)
+        send_cmd({0x8f, 0x08, 0x01, 0x64, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00});
+    */
+
     switch (id.type)
     {
     case EV_ABS:
         switch (id.code)
         {
         case ABS_X:
-            return S2(m_data, 16);
+            if (!(btn & SteamButton::LeftPadTouch))
+                return m_x0 = S2(m_data, 16);
+            else if (btn & SteamButton::LeftPadAndJoy)
+                return m_x0;
+            else
+                return 0;
         case ABS_Y:
-            return -S2(m_data, 18);
+            if (!(btn & SteamButton::LeftPadTouch))
+                return m_y0 = -S2(m_data, 18);
+            else if (btn & SteamButton::LeftPadAndJoy)
+                return m_y0;
+            else
+                return 0;
         case ABS_BRAKE:
             return U2(m_data, 24);
         case ABS_GAS:
@@ -291,45 +327,65 @@ int InputDeviceSteam::get_value(const ValueId &id) const
             return S2(m_data, 20);
         case ABS_RY:
             return -S2(m_data, 22);
+        case ABS_Z:
+            if (btn & SteamButton::LeftPadTouch)
+                return m_z0 = S2(m_data, 58);
+            else if (btn & SteamButton::LeftPadAndJoy)
+                return m_z0;
+            else
+                return 0;
+        case ABS_RZ:
+            if (btn & SteamButton::LeftPadTouch)
+                return m_rz0 = -S2(m_data, 60);
+            else if (btn & SteamButton::LeftPadAndJoy)
+                return m_rz0;
+            else
+                return 0;
         case ABS_HAT0X:
-            if (btn & SteamButton::LeftClick)
+            if (btn & SteamButton::LeftPadClick)
                 return int_sign(S2(m_data, 16) * 3 / 32768);
             else
                 return 0;
         case ABS_HAT0Y:
-            if (btn & SteamButton::LeftClick)
+            if (btn & SteamButton::LeftPadClick)
                 return int_sign(-S2(m_data, 18) * 3 / 32768);
             else
                 return 0;
         case ABS_HAT1X:
-            if (btn & SteamButton::RightClick)
+            if (btn & SteamButton::RightPadClick)
                 return int_sign(S2(m_data, 20) * 3 / 32768);
             else
                 return 0;
         case ABS_HAT1Y:
-            if (btn & SteamButton::RightClick)
+            if (btn & SteamButton::RightPadClick)
                 return int_sign(-S2(m_data, 22) * 3 / 32768);
             else
                 return 0;
+        case ABS_TILT_X:
+            return S2(m_data, 28);
+        case ABS_TILT_Y:
+            return S2(m_data, 30);
+        case ABS_DISTANCE:
+            return S2(m_data, 32);
         }
         break;
     case EV_KEY:
         switch (id.code)
         {
         case BTN_SELECT:
-            return !!(btn & SteamButton::Prev);
+            return !!(btn & SteamButton::Menu);
         case BTN_START:
-            return !!(btn & SteamButton::Next);
+            return !!(btn & SteamButton::Escape);
         case BTN_MODE:
             return !!(btn & SteamButton::Steam);
         case BTN_BASE:
-            return !!(btn & SteamButton::X);
+            return !!(btn & SteamButton::BtnX);
         case BTN_BASE2:
-            return !!(btn & SteamButton::Y);
+            return !!(btn & SteamButton::BtnY);
         case BTN_BASE3:
-            return !!(btn & SteamButton::A);
+            return !!(btn & SteamButton::BtnA);
         case BTN_BASE4:
-            return !!(btn & SteamButton::B);
+            return !!(btn & SteamButton::BtnB);
         case BTN_NORTH:
             return !!(btn & SteamButton::North);
         case BTN_SOUTH:
@@ -339,24 +395,24 @@ int InputDeviceSteam::get_value(const ValueId &id) const
         case BTN_WEST:
             return !!(btn & SteamButton::West);
         case BTN_TL:
-            return !!(btn & SteamButton::LeftShoulder);
+            return !!(btn & SteamButton::LeftBumper);
         case BTN_TR:
-            return !!(btn & SteamButton::RightShoulder);
+            return !!(btn & SteamButton::RightBumper);
         case BTN_TL2:
             return !!(btn & SteamButton::LeftTriggerFull);
         case BTN_TR2:
             return !!(btn & SteamButton::RightTriggerFull);
         case BTN_GEAR_DOWN:
-            return !!(btn & SteamButton::LeftPedal);
+            return !!(btn & SteamButton::LeftBack);
         case BTN_GEAR_UP:
-            return !!(btn & SteamButton::RightPedal);
+            return !!(btn & SteamButton::RightBack);
         case BTN_THUMBL:
             return !!(btn & SteamButton::Stick);
         /*
-        case LeftClick
-        case RightClick
-        case LeftTouch
-        case RightTouch
+        case LeftPadClick
+        case RightPadClick
+        case LeftPadTouch
+        case RightPadTouch
         case Unknown200000
         case Unknown800000
         */
@@ -372,8 +428,20 @@ input_absinfo InputDeviceSteam::get_absinfo(int code) const
 {
     input_absinfo res {};
     res.value = get_value(ValueId(EV_ABS, code));
-    res.minimum = -32767;
-    res.maximum = 32767;
+    switch (code)
+    {
+    case ABS_HAT0X:
+    case ABS_HAT0Y:
+    case ABS_HAT1X:
+    case ABS_HAT1Y:
+        res.minimum = -1;
+        res.maximum = 1;
+        break;
+    default:
+        res.minimum = -32768;
+        res.maximum = 32767;
+        break;
+    }
     return res;
 }
 
@@ -417,4 +485,10 @@ std::shared_ptr<InputDevice> InputDeviceSteamCreate(const IniSection &ini)
     return std::make_shared<InputDeviceSteam>(ini, std::move(fd));
 }
 
+void InputDeviceSteam::send_cmd(const std::initializer_list<uint8_t> &data) const
+{
+    unsigned char feat[65] = {0};
+    memcpy(feat+1, data.begin(), data.size());
+    test(ioctl(fd(), HIDIOCSFEATURE(sizeof(feat)), feat), "HIDIOCSFEATURE");
+}
 
