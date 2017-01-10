@@ -89,7 +89,7 @@ OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
         auto dev = m_abs[kv.id].device.lock();
         uinput_abs_setup abs = {};
         abs.code = kv.id;
-        abs.absinfo = dev->get_absinfo(kv.id);
+        abs.absinfo = dev->get_absinfo(m_abs[kv.id].value_id.code);
         test(ioctl(m_fd.get(), UI_ABS_SETUP, &abs), "abs");
     }
 
@@ -126,7 +126,7 @@ ValueRef OutputDevice::parse_ref(const std::string &desc, IInputByName &inputFin
     auto dev = find_input(sdev, &inputFinder);
     if (!dev)
         throw std::runtime_error("unknown device in ref: " + desc);
-    auto value_id = parse_value_id(saxis);
+    auto value_id = dev->parse_value(saxis);
     return ValueRef{dev, value_id};
 }
 

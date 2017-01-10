@@ -10,7 +10,7 @@
 #include <sys/epoll.h>
 
 #include "inifile.h"
-#include "inputdev.h"
+#include "inputsteam.h"
 #include "outputdev.h"
 
 void help(const char *name)

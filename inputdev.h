@@ -37,8 +37,6 @@ struct ValueId
     {}
 };
 
-ValueId parse_value_id(const std::string &name);
-
 enum class PollResult
 {
     None,
@@ -55,9 +53,10 @@ public:
     int fd() const noexcept
     { return m_fd.get(); }
 
+    virtual ValueId parse_value(const std::string &name) =0;
     virtual PollResult on_poll(int event) =0;
-    virtual int get_value(const ValueId &id) const =0;
-    virtual input_absinfo get_absinfo(int code) const =0;
+    virtual int get_value(const ValueId &id) =0;
+    virtual input_absinfo get_absinfo(int code) =0;
     virtual void flush() =0;
 
 protected:
@@ -75,9 +74,10 @@ class InputDeviceEvent : public InputDevice
 public:
     explicit InputDeviceEvent(const IniSection &ini, FD fd);
 
+    virtual ValueId parse_value(const std::string &name);
     virtual PollResult on_poll(int event);
-    virtual int get_value(const ValueId &id) const;
-    virtual input_absinfo get_absinfo(int code) const;
+    virtual int get_value(const ValueId &id);
+    virtual input_absinfo get_absinfo(int code);
     virtual void flush();
 private:
     input_event m_evs[128];
@@ -85,24 +85,6 @@ private:
     InputStatus m_status;
 
     void on_input(input_event &ev);
-};
-
-std::shared_ptr<InputDevice> InputDeviceSteamCreate(const IniSection &ini);
-
-class InputDeviceSteam : public InputDevice
-{
-public:
-    explicit InputDeviceSteam(const IniSection &ini, FD fd);
-
-    virtual PollResult on_poll(int event);
-    virtual int get_value(const ValueId &id) const;
-    virtual input_absinfo get_absinfo(int code) const;
-    virtual void flush();
-private:
-    mutable int16_t m_x0, m_y0, m_z0, m_rz0;
-    uint8_t m_data[64];
-
-    void send_cmd(const std::initializer_list<uint8_t> &data) const;
 };
 
 #endif /* INPUTDEV_H_INCLUDED */
