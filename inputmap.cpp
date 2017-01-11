@@ -12,6 +12,7 @@
 #include "inifile.h"
 #include "inputsteam.h"
 #include "outputdev.h"
+#include "steamcontroller.h"
 
 void help(const char *name)
 {
@@ -68,7 +69,7 @@ int main2(int argc, char **argv)
 
         if (id == "steam" || id == "Steam" || id == "STEAM")
         {
-            auto dev = InputDeviceSteamCreate(*s);
+            auto dev = std::make_shared<InputDeviceSteam>(*s);
             inputs.push_back(dev);
         }
         else
@@ -85,7 +86,6 @@ int main2(int argc, char **argv)
         std::string id = s->find_single_value("name");
         printf("name='%s'\n", id.c_str());
         outputs.emplace_back(*s, inputFinder);
-
     }
 
     if (inputs.empty())

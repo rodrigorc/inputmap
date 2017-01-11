@@ -50,9 +50,8 @@ public:
     virtual ~InputDevice() {}
     const std::string &name() const noexcept
     { return m_name; }
-    int fd() const noexcept
-    { return m_fd.get(); }
 
+    virtual int fd() =0;
     virtual ValueId parse_value(const std::string &name) =0;
     virtual PollResult on_poll(int event) =0;
     virtual int get_value(const ValueId &id) =0;
@@ -60,10 +59,8 @@ public:
     virtual void flush() =0;
 
 protected:
-    InputDevice(const IniSection &ini, FD fd);
-
+    InputDevice(const IniSection &ini);
 private:
-    FD m_fd;
     std::string m_name;
 };
 
@@ -74,12 +71,15 @@ class InputDeviceEvent : public InputDevice
 public:
     explicit InputDeviceEvent(const IniSection &ini, FD fd);
 
+    virtual int fd()
+    { return m_fd.get(); }
     virtual ValueId parse_value(const std::string &name);
     virtual PollResult on_poll(int event);
     virtual int get_value(const ValueId &id);
     virtual input_absinfo get_absinfo(int code);
     virtual void flush();
 private:
+    FD m_fd;
     input_event m_evs[128];
     int m_num_evs;
     InputStatus m_status;

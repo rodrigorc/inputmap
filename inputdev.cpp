@@ -2,8 +2,7 @@
 #include "inputdev.h"
 #include "event-codes.h"
 
-InputDevice::InputDevice(const IniSection &ini, FD fd)
-    :m_fd(std::move(fd))
+InputDevice::InputDevice(const IniSection &ini)
 {
     m_name = ini.find_single_value("name");
     if (m_name.empty())
@@ -11,7 +10,7 @@ InputDevice::InputDevice(const IniSection &ini, FD fd)
 }
 
 InputDeviceEvent::InputDeviceEvent(const IniSection &ini, FD the_fd)
-    :InputDevice(ini, std::move(the_fd)), m_num_evs(0)
+    :InputDevice(ini), m_fd(std::move(the_fd)), m_num_evs(0)
 {
     bool grab = parse_bool(ini.find_single_value("grab"), false);
 
