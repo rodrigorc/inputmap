@@ -1,4 +1,5 @@
 #include <string>
+#include <signal.h>
 #include <iostream>
 #include <list>
 #include <algorithm>
@@ -20,6 +21,7 @@ void help(const char *name)
     exit(EXIT_FAILURE);
 }
 
+volatile bool g_exit = false;
 
 template<typename IT>
 class InputFinder : public IInputByName
@@ -58,7 +60,7 @@ int main2(int argc, char **argv)
     std::string name = argv[optind];
     IniFile ini(name);
     //ini.Dump(std::cout);
-    
+
     std::list<std::shared_ptr<InputDevice>> inputs;
     std::list<OutputDevice> outputs;
 
@@ -109,7 +111,7 @@ int main2(int argc, char **argv)
         test(epoll_ctl(epoll_fd.get(), EPOLL_CTL_ADD, input->fd(), &ev), "EPOLL_CTL_ADD");
     }
 
-    for (;;)
+    while (!g_exit)
     {
         epoll_event epoll_evs[1];
         int res = epoll_wait(epoll_fd.get(), epoll_evs, countof(epoll_evs), -1);
@@ -156,11 +158,18 @@ int main2(int argc, char **argv)
         }
 
     }
+    printf("Exiting...\n");
     return EXIT_SUCCESS;
 }
 
 int main(int argc, char **argv)
 {
+    struct sigaction sac {};
+    sac.sa_handler = [](int signo) { g_exit = true; };
+    sigaction(SIGINT, &sac, nullptr);
+    sigaction(SIGHUP, &sac, nullptr);
+    sigaction(SIGTERM, &sac, nullptr);
+
     try
     {
         return main2(argc, argv);

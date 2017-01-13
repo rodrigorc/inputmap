@@ -60,6 +60,9 @@ class SteamController
 {
 public:
     static SteamController Create(const std::string &serial);
+    ~SteamController() noexcept;
+    SteamController(SteamController &&o) = default;
+
     int fd()
     { return m_fd.get(); }
     bool on_poll(int event);
@@ -79,7 +82,7 @@ public:
     void haptic_freq(bool left, int freq, int duty, int duration);
     std::string get_serial();
     std::string get_board();
-    
+
 private:
     FD m_fd;
     int16_t m_lpadX, m_lpadY, m_stickX, m_stickY;

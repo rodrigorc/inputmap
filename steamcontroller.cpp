@@ -131,6 +131,12 @@ SteamController::SteamController(FD fd)
 #endif
 }
 
+SteamController::~SteamController() noexcept
+{
+    if (m_fd)
+        set_emulation_mode(static_cast<SteamEmulation>(SteamEmulation::Keys | SteamEmulation::Cursor | SteamEmulation::Mouse));
+}
+
 static inline uint16_t U2(const uint8_t *m, size_t x)
 {
     return m[x] | (m[x+1] << 8);
@@ -434,7 +440,7 @@ static std::vector<std::string> find_steam_devpaths()
         for (const std::string &sys_itf : find_udev_devices(ud.get(), usb.get(), "usb", "bInterfaceProtocol", "00"))
         {
             udev_device_ptr itf { udev_device_new_from_syspath(ud.get(), sys_itf.c_str()) };
-            
+
             for (const std::string &sys_hid : find_udev_devices(ud.get(), itf.get(), "hidraw", nullptr, nullptr))
             {
                 udev_device_ptr hid { udev_device_new_from_syspath(ud.get(), sys_hid.c_str()) };
