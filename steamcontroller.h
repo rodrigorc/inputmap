@@ -70,8 +70,13 @@ public:
     void set_accelerometer(bool enable);
     void set_emulation_mode(SteamEmulation mode);
 
-    void haptic_feedback(bool left, int amplitude, int period, int duration);
-
+    //left: true=left pad, false=right pad
+    //time_on, time_off: in us
+    void haptic(bool left, int time_on, int time_off, int cycles);
+    //freq: in Hz
+    //duty: 0-100 %
+    //duration: in us
+    void haptic_freq(bool left, int freq, int duty, int duration);
     std::string get_serial();
     std::string get_board();
     

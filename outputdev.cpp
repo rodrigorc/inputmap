@@ -7,17 +7,31 @@
 OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
 {
     std::string name = ini.find_single_value("name");
+    std::string phys = ini.find_single_value("phys");
+    std::string bus = ini.find_single_value("bus");
+    std::string vendor = ini.find_single_value("vendor");
+    std::string product = ini.find_single_value("product");
+    std::string version = ini.find_single_value("version");
+
     if (name.empty())
         name = "InputMap";
-    std::string phys = ini.find_single_value("phys");
-    if (phys.empty())
-        phys = "InputMap";
+    uinput_setup us = {};
+    if (bus == "USB")
+        us.id.bustype = BUS_USB;
+    else if (bus == "BLUETOOTH")
+        us.id.bustype = BUS_BLUETOOTH;
+    else if (bus == "PCI")
+        us.id.bustype = BUS_PCI;
+    else
+        us.id.bustype = BUS_VIRTUAL;
+
+    us.id.version = parse_int(version, 1);
+    us.id.vendor = parse_hex_int(vendor, 0);
+    us.id.product = parse_hex_int(product, 0);
+
+    strcpy(us.name, name.c_str());
 
     m_fd = FD_open("/dev/uinput", O_RDWR|O_CLOEXEC);
-    uinput_setup us = {};
-    us.id.bustype = BUS_VIRTUAL;
-    us.id.version = 1;
-    strcpy(us.name, name.c_str());
     test(ioctl(m_fd.get(), UI_DEV_SETUP, &us), "UI_DEV_SETUP");
     test(ioctl(m_fd.get(), UI_SET_PHYS, phys.c_str()), "UI_SET_PHYS");
 

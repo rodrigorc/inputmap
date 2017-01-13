@@ -64,10 +64,17 @@ static EventName g_steam_button_names[] =
 
 InputDeviceSteam::InputDeviceSteam(const IniSection &ini)
 :InputDevice(ini),
- m_steam(SteamController::Create(ini.find_single_value("serial").c_str()))
+    m_steam(SteamController::Create(ini.find_single_value("serial").c_str())),
+    m_count(0)
 {
     bool mouse = parse_bool(ini.find_single_value("mouse"), false);
     m_steam.set_emulation_mode(mouse? SteamEmulation::Mouse : SteamEmulation::None);
+
+    std::string auto_haptic = ini.find_single_value("auto_haptic");
+    m_auto_haptic_left = auto_haptic.find('l') != std::string::npos ||
+                         auto_haptic.find('L') != std::string::npos;
+    m_auto_haptic_right = auto_haptic.find('r') != std::string::npos ||
+                         auto_haptic.find('R') != std::string::npos;
 }
 
 ValueId InputDeviceSteam::parse_value(const std::string &name)
@@ -87,7 +94,17 @@ ValueId InputDeviceSteam::parse_value(const std::string &name)
 
 PollResult InputDeviceSteam::on_poll(int event)
 {
-    return m_steam.on_poll(event)? PollResult::Sync : PollResult::None;
+    if (!m_steam.on_poll(event))
+        return PollResult::None;
+    ++m_count;
+
+    if (m_auto_haptic_left)
+        if (m_steam.get_button(SteamButton::LPadTouch))
+            m_steam.haptic_freq(true, 200, 50, 8000);
+    if (m_auto_haptic_right)
+        if (m_steam.get_button(SteamButton::RPadTouch))
+            m_steam.haptic_freq(false, 200, 50, 10000);
+    return PollResult::Sync;
 }
 
 int InputDeviceSteam::get_value(const ValueId &id)
@@ -133,7 +150,7 @@ input_absinfo InputDeviceSteam::get_absinfo(int code)
             res.minimum = -255;
             res.maximum = 255;
             break;
-            
+
         case SteamAxis::GyroX:
         case SteamAxis::GyroY:
         case SteamAxis::GyroZ:

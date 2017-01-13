@@ -91,8 +91,12 @@ Known commands:
  * 0x87: write register (LEN REG BL BH). LEN in bytes (= 3 * #writes)
  * 0xC5: ??? (03 FF FF FF)
  * 0xC1: ??? (10 FFFFFFFF 030905FF FFFFFFFF FFFFFFFF)
- * 0x8F: haptic feedback (LEN SIDE AMPL AMPH PERL PERH CNTL CNTH SHAPE)
+ * 0x8F: haptic feedback (LEN SIDE ONL ONH OFFL OFFH CNTL CNTH UNK)
          (LEN=7 or 8) Ex: rmouse=8f 08 00 6400 0000 0100 00
+         SIDE: 0=right; 1=left.
+         ON: time the motor is on each pulse, in us.
+         OFF: time the motor is off each pulse, in us.
+         CNT: number of pulses.
  * 0x85: enable key emulation
  * 0x8E: enable mouse & cursor emulation
 
@@ -344,15 +348,28 @@ void SteamController::set_emulation_mode(SteamEmulation mode)
     }
 }
 
-void SteamController::haptic_feedback(bool left, int amplitude, int period, int duration)
+void SteamController::haptic(bool left, int time_on, int time_off, int cycles)
 {
     send_cmd({0x8f, 0x08,
         BL(left? 1 : 0),
-        BL(amplitude), BH(amplitude),
-        BL(period), BH(period),
-        BL(duration), BH(duration),
-        0x00, //shape?
+        BL(time_on), BH(time_on),
+        BL(time_off), BH(time_off),
+        BL(cycles), BH(cycles),
+        0,
     });
+}
+
+void SteamController::haptic_freq(bool left, int freq, int duty, int duration)
+{
+    int period = 1000000 / freq; //in us
+    int time_on = period * duty / 100;
+    int time_off = period - time_on;
+    if (time_on <= 0 || time_off < 0)
+        return;
+    int cycles = duration / period;
+    if (cycles <= 0)
+        cycles = 1;
+    haptic(left, time_on, time_off, cycles);
 }
 
 std::string SteamController::get_serial()

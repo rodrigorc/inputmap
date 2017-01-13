@@ -3,12 +3,31 @@
 
 #include <string>
 #include <vector>
+#include <sstream>
 
 inline bool parse_bool(const std::string &txt, bool def)
 {
     if (txt.empty())
         return def;
     return txt == "Y" || txt == "y" || txt == "1";
+}
+
+inline int parse_int(const std::string &txt, int def)
+{
+    if (txt.empty())
+        return def;
+    std::istringstream ifs(txt);
+    ifs >> def;
+    return def;
+}
+
+inline int parse_hex_int(const std::string &txt, int def)
+{
+    if (txt.empty())
+        return def;
+    std::istringstream ifs(txt);
+    ifs >> std::hex >> def;
+    return def;
 }
 
 class IniEntry
