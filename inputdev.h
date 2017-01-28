@@ -37,6 +37,14 @@ struct ValueId
     {}
 };
 
+class InputDevice;
+
+struct IInputByName
+{
+    virtual ~IInputByName() {}
+    virtual std::shared_ptr<InputDevice> find_input(const std::string &name) =0;
+};
+
 enum class PollResult
 {
     None,

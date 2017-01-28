@@ -3,6 +3,7 @@
 #include "outputdev.h"
 #include "inputdev.h"
 #include "event-codes.h"
+#include "devinput-parser.h"
 
 OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
 {
@@ -34,22 +35,6 @@ OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
     m_fd = FD_open("/dev/uinput", O_RDWR|O_CLOEXEC);
     test(ioctl(m_fd.get(), UI_DEV_SETUP, &us), "UI_DEV_SETUP");
     test(ioctl(m_fd.get(), UI_SET_PHYS, phys.c_str()), "UI_SET_PHYS");
-
-    //test(ioctl(m_fd.get(), UI_SET_EVBIT, EV_ABS), "EV_ABS");
-    //test(ioctl(m_fd.get(), UI_SET_EVBIT, EV_KEY), "EV_KEY");
-
-    /*
-    uinput_abs_setup abs = {};
-    abs.absinfo.minimum = 0;
-    abs.absinfo.maximum = 0xFF;
-    abs.absinfo.value = 0x7F;
-    abs.code = ABS_X;
-    test(ioctl(m_fd.get(), UI_ABS_SETUP, &abs), "ABS_X");
-    abs.code = ABS_Y;
-    test(ioctl(m_fd.get(), UI_ABS_SETUP, &abs), "ABS_Y");
-
-    test(ioctl(m_fd.get(), UI_SET_KEYBIT, BTN_TRIGGER), "BTN_TRIGGER");
-    */
 
     bool has_rel = false;
     for (const auto &kv : g_rel_names)
@@ -99,49 +84,27 @@ OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
             test(ioctl(m_fd.get(), UI_SET_EVBIT, EV_ABS), "EV_ABS");
             has_abs = true;
         }
-        //test(ioctl(m_fd.get(), UI_SET_ABSBIT, kv.id), "UI_SET_ABSBIT");
-        auto dev = m_abs[kv.id].device.lock();
         uinput_abs_setup abs = {};
         abs.code = kv.id;
-        abs.absinfo = dev->get_absinfo(m_abs[kv.id].value_id.code);
+        abs.absinfo.minimum = -32767;
+        abs.absinfo.maximum = 32767;
+        //test(ioctl(m_fd.get(), UI_SET_ABSBIT, kv.id), "UI_SET_ABSBIT");
+        /*
+        auto dev = m_abs[kv.id].device.lock();
+        if (m_abs[kv.id].value_id.type == EV_ABS)
+        {
+            abs.absinfo = dev->get_absinfo(m_abs[kv.id].value_id.code);
+        }
+        else
+        {
+            abs.absinfo.minimum = -32767;
+            abs.absinfo.maximum = 32767;
+        }
+        */
         test(ioctl(m_fd.get(), UI_ABS_SETUP, &abs), "abs");
     }
 
     test(ioctl(m_fd.get(), UI_DEV_CREATE, 0), "UI_DEV_CREATE");
-}
-
-std::shared_ptr<InputDevice> OutputDevice::find_input(const std::string &name, IInputByName *inputFinder)
-{
-    auto it = std::find_if(m_inputs.begin(), m_inputs.end(), [&name](std::weak_ptr<InputDevice> &x)
-            {
-                auto p = x.lock();
-                return p && p->name() == name;
-            });
-    if (it != m_inputs.end())
-        return it->lock();
-
-    std::shared_ptr<InputDevice> res;
-    if (inputFinder)
-    {
-        res = inputFinder->find_input(name);
-        if (res)
-            m_inputs.push_back(res);
-    }
-    return res;
-}
-
-ValueRef OutputDevice::parse_ref(const std::string &desc, IInputByName &inputFinder)
-{
-    size_t dot = desc.find(".");
-    if (dot == std::string::npos)
-        throw std::runtime_error("invalid ref: " + desc);
-    std::string sdev = desc.substr(0, dot);
-    std::string saxis = desc.substr(dot + 1);
-    auto dev = find_input(sdev, &inputFinder);
-    if (!dev)
-        throw std::runtime_error("unknown device in ref: " + desc);
-    auto value_id = dev->parse_value(saxis);
-    return ValueRef{dev, value_id};
 }
 
 inline input_event create_event(int type, int code, int value)
@@ -153,10 +116,35 @@ inline input_event create_event(int type, int code, int value)
     return ev;
 }
 
-inline void do_event(std::vector<input_event> &evs, int type, int code, ValueRef &ref)
+inline void do_event(std::vector<input_event> &evs, int type, int code, ValueExpr *ref)
 {
-    if (ref)
-        evs.push_back(create_event(type, code, ref.get_value()));
+    if (!ref)
+        return;
+
+    int value = ref->get_value();
+    /*
+    if (type != ref.value_id.type)
+    {
+#define CTYPE(from, to) (((from) << 4) | (to))
+        switch (CTYPE(ref.value_id.type, type))
+        {
+        case CTYPE(EV_REL, EV_ABS):
+            break;
+        case CTYPE(EV_ABS, EV_REL):
+            break;
+        case CTYPE(EV_REL, EV_KEY):
+            break;
+        case CTYPE(EV_KEY, EV_REL):
+            break;
+        case CTYPE(EV_ABS, EV_KEY):
+            break;
+        case CTYPE(EV_KEY, EV_ABS):
+            value = value? 32767 : 0;
+            break;
+        }
+#undef CTYPE
+    }*/
+    evs.push_back(create_event(type, code, value));
 }
 
 void OutputDevice::sync()
@@ -164,11 +152,11 @@ void OutputDevice::sync()
     std::vector<input_event> evs;
 
     for (int i = 0; i < REL_CNT; ++i)
-        do_event(evs, EV_REL, i, m_rel[i]);
+        do_event(evs, EV_REL, i, m_rel[i].get());
     for (int i = 0; i < KEY_CNT; ++i)
-        do_event(evs, EV_KEY, i, m_key[i]);
+        do_event(evs, EV_KEY, i, m_key[i].get());
     for (int i = 0; i < ABS_CNT; ++i)
-        do_event(evs, EV_ABS, i, m_abs[i]);
+        do_event(evs, EV_ABS, i, m_abs[i].get());
 
     if (!evs.empty())
     {

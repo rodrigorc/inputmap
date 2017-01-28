@@ -133,8 +133,14 @@ SteamController::SteamController(FD fd)
 
 SteamController::~SteamController() noexcept
 {
+    try
+    {
     if (m_fd)
         set_emulation_mode(static_cast<SteamEmulation>(SteamEmulation::Keys | SteamEmulation::Cursor | SteamEmulation::Mouse));
+    }
+    catch (...)
+    { //ignore errors
+    }
 }
 
 static inline uint16_t U2(const uint8_t *m, size_t x)
