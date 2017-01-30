@@ -11,16 +11,16 @@ When the device is connected with a cable it shows as device `28de:1102`, which 
 
  1. A virtual keyboard, to send emulated key events, for keys `ENTER`, `ESC`, etc.
  2. A virtual mouse, by default the right pad sends mouse events through this interface.
- 3. A vendor defined interface that implements the vendor defined protocol. From now on I will call this interface and protocol _Valve_.
+ 3. A vendor defined interface that implements the vendor defined protocol. From now on I will call this interface and protocol _Steam.
 
 When the wireless adaptor is connected it shows as device `28de:1142`, which contains 5 USB interfaces:
 
  * A virtual keyboard, like the wired one (no virtual mouse, sorry).
- * 4 Valve interfaces, to be able to connect up to 4 controller wirelessly.
+ * 4 Steam interfaces, to be able to connect up to 4 controller wirelessly.
 
 ## The hidraw device
 
-The Valve interface does implement the HID protocol, but it does not define any standard input, so the Linux kernel is not able to create an input device for it.
+The Steam interface does implement the HID protocol, but it does not define any standard input, so the Linux kernel is not able to create an input device for it.
 It creates a hidraw device, instead (`/dev/hidraw*`).
 
 The HID descriptor for this device is as follows:
@@ -50,11 +50,11 @@ That basically means that it generates input reports of 64 vendor defined bytes 
 
 It also defines a _feature_ of 64 bytes. That is a kind of special command that can be sent or received offside the usual events.
 
-What this means is that if you read the Valve `/dev/hidraw*` device you will get blocks of 64 bytes each, with vendor specific meaning.
+What this means is that if you read the Steam `/dev/hidraw*` device you will get blocks of 64 bytes each, with vendor specific meaning.
 
 ## The input report
 
-Each block of data read from the Valve hidraw device contains 64 bytes of data. I have managed to make sense of most of them.
+Each block of data read from the Steam hidraw device contains 64 bytes of data. I have managed to make sense of most of them.
 
 In the following tables I will describe what I know.
 
@@ -78,7 +78,7 @@ The rest of the bytes depend on the value of ToM.
 
 ### The _wireless connect/disconnect_ report
 
-When ToM equals 0x03, that means that a wireless device has been connected/disconnected to this Valve interface. The wired device does not generate this report, it just appears or vanishes directly, but the 4 wireless devices exist whenever the wireless adaptor is connected.
+When ToM equals 0x03, that means that a wireless device has been connected/disconnected to this Steam interface. The wired device does not generate this report, it just appears or vanishes directly, but the 4 wireless devices exist whenever the wireless adaptor is connected.
 
 The data bytes of this report are:
 
@@ -186,4 +186,67 @@ But what if you want to manage input from the left pad and the joystick at the s
 That is, when both controls are used at the same time, you will get alternating events with the two last rows of this table. You can get the left pad coordinates unconditionally from the _Left pad X/Y coord_ values, but those unfortunately are not available with the wireless device.
 
 
+
+## Feature reports
+
+The Steam hidraw device also accepts commands in the form of a feature report. It is sent by using a `ioctl()` call with the `HIDIOCSFEATURE` value. Some commands have a reply, that can be read with the `HIDIOCGFEATURE` `ioctl()`. See the source code for details of how they are sent and received.
+
+All the commands are 64 bytes in length, although in practice most commands use only a few of them. The general structure of the command is:
+
+| Byte index     | Name        |
+| -------------: |-------------|
+|  0             | Command code  |
+|  1             | Length of the command data |
+|  2-            | Data of the command |
+
+The following commands are currently known:
+
+ * 0x85: Enables the emulation of the virtual keyboard when the buttons are pressed.
+ * 0x81: Disables the emulation of the virtual keyboard.
+ * 0x8E: Resets the device to the default emulation values.
+ * 0xAE 0x15 0x01: Gets the serial number. The reply will contain the serial number in positions 3-13.
+ * 0xAE 0x15 0x00: Gets the board information. The reply will contain the board number in positions 3-13.
+ * 0x83: Version information. It will return 30 bytes, or 6 structures of 5 bytes each. The first byte of the structure identifies the value, the other 4 are the value itself. These are the known values:
+  - 0x00: Unknown, maybe firmware version.
+  - 0x01: Product id. The constant 0x1102 is the Steam Controller.
+  - 0x02: Capabilities, always 0x03.
+  - 0x04: firmware build time.
+  - 0x05: some unknown time.
+  - 0x0A: bootloader build time.
+ * 0xBA: returns some unknown information.
+ * 0x87 0x03 R Blow Bhigh: Writes 16-bit value B into register R. Several writes can be combined into a single command, such as `0x87 0x06 R1 XL XH R2 YL YH`. The known registers are:
+  - 0x30: Accelerometer: 0x00=disabled, 0x14=enabled.
+  - 0x08: Write 0x07 to disable mouse keys emulation.
+  - 0x07: Write 0x07 to disable mouse cursor emulation.
+  - 0x18: Write 0x00 to remove the margin of the right pad. By default touching the rim of the right pad does not generate events.
+ * 0x8F: Send haptic feedback. See below.
+
+
+## Haptic feedback
+
+The little motors in the device are activated with the command 0x8F, as described in the previous section. This command takes 7 or 8 bytes of data, so the command is as follows:
+
+| Byte index     | Name        |
+| -------------: |-------------|
+|  0             | 0x8F (Command) |
+|  1             | 0x07 or 0x08 (Length)  |
+|  2             | Side |
+|  3-4           | Time On |
+|  5-6           | Time Off |
+|  7-8           | Count |
+|  9             | Unknown |
+
+The Side value is:
+
+ * 0: right motor.
+ * 1: left motor.
+
+The rest of the values describe the shape of the signal that is sent to the motor. As far as I know it sends a square signal to the motor that makes it vibrate. For each cicle of the signal you can control the duration of the ON and the OFF sections. And also the number of cycles in the signal. When all these cycles has been sent, the motors stops by itself. If you send another signal to the same motor, the previous one is forgotten. The Time On/Off values are measured in microseconds.
+
+So if you want to send a signal of _freq_ Hz with a duty cycle of _duty_% for _duration_ seconds, you will send, you could use the following code to compute the actual parameters of the command:
+
+    int period = 1000000 / freq; //in us
+    int time_on = period * duty / 100;
+    int time_off = period - time_on;
+    int count = duration / period;
 
