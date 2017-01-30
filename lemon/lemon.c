@@ -1505,6 +1505,15 @@ static void handle_T_option(char *z){
   lemon_strcpy(user_templatename, z);
 }
 
+static char *user_outputdir = NULL;
+static void handle_B_option(char *z){
+  user_outputdir = (char *) malloc( lemonStrlen(z)+1 );
+  if( user_outputdir==0 ){
+    memory_error();
+  }
+  lemon_strcpy(user_outputdir, z);
+}
+
 /* Merge together to lists of rules ordered by rule.iRule */
 static struct rule *Rule_merge(struct rule *pA, struct rule *pB){
   struct rule *pFirst = 0;
@@ -1596,6 +1605,7 @@ int main(int argc, char **argv)
     {OPT_FLAG, "x", (char*)&version, "Print the version number."},
     {OPT_FSTR, "T", (char*)handle_T_option, "Specify a template file."},
     {OPT_FSTR, "W", 0, "Ignored.  (Placeholder for '-W' compiler options.)"},
+    {OPT_FSTR, "B", (char*)handle_B_option, "Specify a output directory."},
     {OPT_FLAG,0,0,0}
   };
   int i;
@@ -2964,12 +2974,22 @@ PRIVATE char *file_makename(struct lemon *lemp, const char *suffix)
   char *name;
   char *cp;
 
-  name = (char*)malloc( lemonStrlen(lemp->filename) + lemonStrlen(suffix) + 5 );
+  char *slash = strrchr(lemp->filename, '/');
+  if (slash)
+      ++slash;
+  else
+      slash = lemp->filename;
+
+  char *outdir = user_outputdir ? user_outputdir : ".";
+
+  name = (char*)malloc( lemonStrlen(outdir) + 1 + lemonStrlen(slash) + lemonStrlen(suffix) + 5 );
   if( name==0 ){
     fprintf(stderr,"Can't allocate space for a filename.\n");
     exit(1);
   }
-  lemon_strcpy(name,lemp->filename);
+  lemon_strcpy(name,outdir);
+  lemon_strcat(name,"/");
+  lemon_strcat(name,slash);
   cp = strrchr(name,'.');
   if( cp ) *cp = 0;
   lemon_strcat(name,suffix);
@@ -4010,7 +4030,7 @@ void ReportTable(
 
   in = tplt_open(lemp);
   if( in==0 ) return;
-  out = file_open(lemp,".c","wb");
+  out = file_open(lemp,".cpp","wb");
   if( out==0 ){
     fclose(in);
     return;
