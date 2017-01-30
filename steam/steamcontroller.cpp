@@ -310,6 +310,8 @@ int SteamController::get_axis(SteamAxis axis)
 
 bool SteamController::get_button(SteamButton btn)
 {
+    if (btn == SteamButton::LPadTouch)
+        btn = static_cast<SteamButton>(SteamButton::LPadTouch | SteamButton::LPadAndJoy);
     uint32_t btns = U3(m_data, 8);
     return (btns & btn) != 0;
 }
