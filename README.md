@@ -2,9 +2,11 @@
 Creates virtual input devices from real ones, SteamController support included.
 
 This program lets you create a virtual input device, by using the Linux `uinput` module, and map to it
-any number of buttons or axis from real devices. Currently, it is able to use raw input devices and SteamControllers.
+any number of buttons or axes from real devices. Currently, it is able to use raw input devices and SteamControllers.
 
 The main motivation for this program is to be able to use the SteamController as a normal gamepad, but you can find many other uses for it.
+
+If you are looking for information about the SteamController protocol, then read the [STEAM.md](STEAM.md) file.
 
 ## License
 
@@ -66,7 +68,7 @@ In this section you will define the virtual device. First you have a few optiona
    * `product`: An hexadecimal number to be reported as ProductId, defaults to 0.
    * `version`: The version of the device, mostly useless. Defaults to 1.
 
-Additionally, you map all the buttons and axis of the virtual device and how the physical devices map to them.
+Additionally, you map all the buttons and axes of the virtual device and how the physical devices map to them.
 
 #### Maps in the `[output]` section
 
