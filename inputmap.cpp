@@ -111,6 +111,8 @@ int main2(int argc, char **argv)
         test(epoll_ctl(epoll_fd.get(), EPOLL_CTL_ADD, input->fd(), &ev), "EPOLL_CTL_ADD");
     }
 
+    nice(-10);
+
     while (!g_exit)
     {
         epoll_event epoll_evs[1];
