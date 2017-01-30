@@ -13,7 +13,7 @@ includes = include_directories('util')
 devinput_src = lemon.process('devinput.lem')
 
 executable('inputmap',
-    ['inputmap.cpp', 'inifile.cpp', 'inputdev.cpp', 'outputdev.cpp', 'event-codes.cpp', 'steamcontroller.cpp', 'inputsteam.cpp',
+    ['inputmap.cpp', 'inifile.cpp', 'inputdev.cpp', 'outputdev.cpp', 'event-codes.cpp', 'steam/steamcontroller.cpp', 'inputsteam.cpp',
      'devinput-parser.cpp', devinput_src],
     include_directories: includes, 
     dependencies: [udevdep],
