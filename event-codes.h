@@ -22,6 +22,7 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef EVENT_CODES_H_INCLUDED
 #define EVENT_CODES_H_INCLUDED
 
+#include <linux/input.h>
 #include <linux/input-event-codes.h>
 
 struct EventName
@@ -33,5 +34,6 @@ struct EventName
 extern EventName g_key_names[KEY_CNT];
 extern EventName g_rel_names[REL_CNT];
 extern EventName g_abs_names[ABS_CNT];
+extern EventName g_ff_names[FF_CNT];
 
 #endif /* EVENT-CODES_H_INCLUDED */

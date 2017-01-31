@@ -128,8 +128,15 @@ int main2(int argc, char **argv)
     {
         epoll_event ev;
         ev.events = EPOLLIN;
-        ev.data.ptr = input.get();
+        ev.data.ptr = static_cast<IPollable*>(input.get());
         test(epoll_ctl(epoll_fd.get(), EPOLL_CTL_ADD, input->fd(), &ev), "EPOLL_CTL_ADD");
+    }
+    for (auto &output : outputs)
+    {
+        epoll_event ev;
+        ev.events = EPOLLIN;
+        ev.data.ptr = static_cast<IPollable*>(&output);
+        test(epoll_ctl(epoll_fd.get(), EPOLL_CTL_ADD, output.fd(), &ev), "EPOLL_CTL_ADD");
     }
 
     nice(-10);
@@ -150,22 +157,25 @@ int main2(int argc, char **argv)
         for (int i = 0; i < res; ++i)
         {
             epoll_event &ev = epoll_evs[i];
-            auto input = static_cast<InputDevice*>(ev.data.ptr);
+            auto pollable = static_cast<IPollable*>(ev.data.ptr);
             if (ev.events & EPOLLERR)
             {
-                deletes.push_back(input->shared_from_this());
+                if (auto input = dynamic_cast<InputDevice*>(pollable))
+                    deletes.push_back(input->shared_from_this());
                 continue;
             }
-            auto res = input->on_poll(ev.events);
+            auto res = pollable->on_poll(ev.events);
             switch (res)
             {
             case PollResult::None:
                 break;
             case PollResult::Error:
-                deletes.push_back(input->shared_from_this());
+                if (auto input = dynamic_cast<InputDevice*>(pollable))
+                    deletes.push_back(input->shared_from_this());
                 break;
             case PollResult::Sync:
-                synced.push_back(input->shared_from_this());
+                if (auto input = dynamic_cast<InputDevice*>(pollable))
+                    synced.push_back(input->shared_from_this());
                 break;
             }
         }

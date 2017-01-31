@@ -27,18 +27,31 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include "inputdev.h"
 #include "devinput-parser.h"
 
-class OutputDevice
+struct FFEffect
+{
+    std::weak_ptr<InputDevice> device;
+    int input_id;
+};
+
+class OutputDevice : public IPollable
 {
 public:
     OutputDevice(const IniSection &ini, IInputByName &inputFinder);
     void sync();
+
+    virtual int fd() override { return m_fd.get(); }
+    virtual PollResult on_poll(int event) override;
+
 private:
     FD m_fd;
     std::unique_ptr<ValueExpr> m_rel[REL_CNT];
     std::unique_ptr<ValueExpr> m_key[KEY_CNT];
     std::unique_ptr<ValueExpr> m_abs[ABS_CNT];
+    std::unique_ptr<ValueRef> m_ff[FF_CNT];
 
     void write_value(int type, int code, int value);
+
+    std::vector<FFEffect> m_effects;
 };
 
 #endif /* OUTPUTDEV_H_INCLUDED */

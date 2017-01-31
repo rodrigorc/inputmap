@@ -34,6 +34,10 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #define BitAbs(x) {x, #x},
 #define EndAbs() };
 
+#define BeginFF() EventName g_ff_names[FF_CNT] = {
+#define BitFF(x) {x, #x},
+#define EndFF() };
+
 #include "event-codes.inc"
 
 

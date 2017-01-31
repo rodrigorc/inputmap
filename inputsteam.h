@@ -37,6 +37,9 @@ public:
     virtual PollResult on_poll(int event);
     virtual int get_value(const ValueId &id);
     virtual input_absinfo get_absinfo(int code);
+    virtual int ff_upload(const ff_effect &eff);
+    virtual int ff_erase(int id);
+    virtual void ff_run(int eff, bool on);
     virtual void flush();
 private:
     SteamController m_steam;

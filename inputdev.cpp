@@ -102,6 +102,11 @@ ValueId InputDeviceEvent::parse_value(const std::string &name)
         if (kv.name && kv.name == name)
             return ValueId(EV_ABS, kv.id);
     }
+    for (const auto &kv : g_ff_names)
+    {
+        if (kv.name && kv.name == name)
+            return ValueId(EV_FF, kv.id);
+    }
     throw std::runtime_error("unknown value name " + name);
 }
 
@@ -186,6 +191,33 @@ input_absinfo InputDeviceEvent::get_absinfo(int code)
 void InputDeviceEvent::flush()
 {
     memset(m_status.rel, 0, sizeof(m_status.rel));
+}
+
+int InputDeviceEvent::ff_upload(const ff_effect &eff)
+{
+    ff_effect ff = eff;
+    ff.id = -1;
+    int res = ioctl(fd(), EVIOCSFF, &ff);
+    if (res < 0)
+        return -errno;
+    return ff.id;
+}
+
+int InputDeviceEvent::ff_erase(int id)
+{
+    int res = ioctl(fd(), EVIOCRMFF, id);
+    if (res < 0)
+        return -errno;
+    return 0;
+}
+
+void InputDeviceEvent::ff_run(int eff, bool on)
+{
+    input_event ev{};
+    ev.type = EV_FF;
+    ev.code = eff;
+    ev.value = on? 1 : 0;
+    test(write(fd(), &ev, sizeof(ev)), "write ff");
 }
 
 std::shared_ptr<InputDevice> InputDeviceEventCreate(const IniSection &ini, const std::string &id)

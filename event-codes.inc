@@ -100,6 +100,16 @@
 #define EndSnd()
 #endif
 
+#ifndef BeginFF
+#define BeginFF()
+#endif
+#ifndef BitFF
+#define BitFF(x)
+#endif
+#ifndef EndFF
+#define EndFF()
+#endif
+
 
 
 BeginEv()
@@ -796,3 +806,21 @@ BitSnd(SND_BELL)
 BitSnd(SND_TONE)
 EndSnd()
 
+BeginFF()
+BitFF(FF_RUMBLE)
+BitFF(FF_PERIODIC)
+BitFF(FF_CONSTANT)
+BitFF(FF_SPRING)
+BitFF(FF_FRICTION)
+BitFF(FF_DAMPER)
+BitFF(FF_INERTIA)
+BitFF(FF_RAMP)
+BitFF(FF_SQUARE)
+BitFF(FF_TRIANGLE)
+BitFF(FF_SINE)
+BitFF(FF_SAW_UP)
+BitFF(FF_SAW_DOWN)
+BitFF(FF_CUSTOM)
+BitFF(FF_GAIN)
+BitFF(FF_AUTOCENTER)
+EndFF()

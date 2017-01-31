@@ -99,6 +99,11 @@ ValueId InputDeviceSteam::parse_value(const std::string &name)
         if (ev.name == name)
             return ValueId{ EV_KEY, ev.id };
     }
+    for (const auto &kv : g_ff_names)
+    {
+        if (kv.name && kv.name == name)
+            return ValueId(EV_FF, kv.id);
+    }
     throw std::runtime_error("unknown value name " + name);
 }
 
@@ -179,6 +184,30 @@ input_absinfo InputDeviceSteam::get_absinfo(int code)
     */
     }
     return res;
+}
+
+int InputDeviceSteam::ff_upload(const ff_effect &eff)
+{
+    return 0;
+}
+int InputDeviceSteam::ff_erase(int id)
+{
+    return 0;
+}
+void InputDeviceSteam::ff_run(int eff, bool on)
+{
+    if (on)
+    {
+        printf("haptic on %d\n", eff);
+        m_steam.haptic(true, 5000, 5000, 65535);
+        m_steam.haptic(false, 5000, 5000, 65535);
+    }
+    else
+    {
+        printf("haptic off %d\n", eff);
+        m_steam.haptic(true, 1, 1, 1);
+        m_steam.haptic(false, 1, 1, 1);
+    }
 }
 
 void InputDeviceSteam::flush()

@@ -41,7 +41,7 @@ void DevInputParse(void *yyp, int yymajor, const std::string *yyminor, DevInputA
 
 struct ValueExpr
 {
-    virtual ~ValueExpr() =default;
+    virtual ~ValueExpr() {}
     virtual int get_value() =0;
 };
 
@@ -65,6 +65,14 @@ public:
     {
     }
     int get_value() override;
+    std::shared_ptr<InputDevice> get_device()
+    {
+        return m_device.lock();
+    }
+    const ValueId &get_value_id() const
+    {
+        return m_value_id;
+    }
 private:
     std::weak_ptr<InputDevice> m_device;
     ValueId m_value_id;

@@ -73,18 +73,26 @@ enum class PollResult
     Sync,
 };
 
-class InputDevice : public std::enable_shared_from_this<InputDevice>
+struct IPollable
+{
+    virtual ~IPollable() {}
+    virtual int fd() =0;
+    virtual PollResult on_poll(int event) =0;
+};
+
+class InputDevice : public std::enable_shared_from_this<InputDevice>,
+                    public IPollable
 {
 public:
-    virtual ~InputDevice() {}
     const std::string &name() const noexcept
     { return m_name; }
 
-    virtual int fd() =0;
     virtual ValueId parse_value(const std::string &name) =0;
-    virtual PollResult on_poll(int event) =0;
     virtual int get_value(const ValueId &id) =0;
     virtual input_absinfo get_absinfo(int code) =0;
+    virtual int ff_upload(const ff_effect &eff) =0;
+    virtual int ff_erase(int id) =0;
+    virtual void ff_run(int eff, bool on) =0;
     virtual void flush() =0;
 
 protected:
@@ -106,6 +114,9 @@ public:
     virtual PollResult on_poll(int event);
     virtual int get_value(const ValueId &id);
     virtual input_absinfo get_absinfo(int code);
+    virtual int ff_upload(const ff_effect &eff);
+    virtual int ff_erase(int id);
+    virtual void ff_run(int eff, bool on);
     virtual void flush();
 private:
     FD m_fd;
