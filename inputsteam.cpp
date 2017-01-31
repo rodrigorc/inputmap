@@ -22,10 +22,19 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <sys/epoll.h>
 #include <linux/hidraw.h>
+#include <math.h>
 #include "udev-wrapper.h"
 #include "inputdev.h"
 #include "inputsteam.h"
 #include "event-codes.h"
+
+enum PseudoAxis
+{
+    LPadAngle = 1000,
+    LPadRadius,
+    RPadAngle,
+    RPadRadius,
+};
 
 static EventName g_steam_abs_names[] =
 {
@@ -42,6 +51,10 @@ static EventName g_steam_abs_names[] =
     {SteamAxis::GyroX,    "GyroX"},
     {SteamAxis::GyroY,    "GyroY"},
     {SteamAxis::GyroZ,    "GyroZ"},
+    {PseudoAxis::LPadAngle,  "LPadAngle"},
+    {PseudoAxis::LPadRadius, "LPadRadius"},
+    {PseudoAxis::RPadAngle,  "RPadAngle"},
+    {PseudoAxis::RPadRadius, "RPadRadius"},
 };
 
 static EventName g_steam_button_names[] =
@@ -134,7 +147,44 @@ int InputDeviceSteam::get_value(const ValueId &id)
     switch (id.type)
     {
     case EV_ABS:
-        return m_steam.get_axis(static_cast<SteamAxis>(id.code));
+        //For some reason the pads are rotated by about 15 degrees
+        switch (id.code)
+        {
+        case PseudoAxis::LPadAngle:
+            {
+                int x = m_steam.get_axis(SteamAxis::LPadX);
+                int y = m_steam.get_axis(SteamAxis::LPadY);
+                float a = atan2(y, x);
+                return a * (180 / M_PI) + 15;
+            }
+            break;
+        case PseudoAxis::RPadAngle:
+            {
+                int x = m_steam.get_axis(SteamAxis::RPadX);
+                int y = m_steam.get_axis(SteamAxis::RPadY);
+                float a = atan2(y, x);
+                return a * (180 / M_PI) - 15;
+            }
+            break;
+        case PseudoAxis::LPadRadius:
+            {
+                int x = m_steam.get_axis(SteamAxis::LPadX);
+                int y = m_steam.get_axis(SteamAxis::LPadY);
+                float a = hypot(y, x);
+                return a;
+            }
+            break;
+        case PseudoAxis::RPadRadius:
+            {
+                int x = m_steam.get_axis(SteamAxis::RPadX);
+                int y = m_steam.get_axis(SteamAxis::RPadY);
+                float a = hypot(y, x);
+                return a;
+            }
+            break;
+        default:
+            return m_steam.get_axis(static_cast<SteamAxis>(id.code));
+        }
     case EV_KEY:
         return m_steam.get_button(static_cast<SteamButton>(id.code));
         break;
@@ -156,22 +206,33 @@ input_absinfo InputDeviceSteam::get_absinfo(int code)
         case SteamAxis::LPadY:
         case SteamAxis::RPadX:
         case SteamAxis::RPadY:
-            res.minimum = -32768;
+            res.minimum = -32767;
             res.maximum = 32767;
             break;
 
         case SteamAxis::LTrigger:
         case SteamAxis::RTrigger:
-            res.minimum = -255;
+            res.minimum = 0;
             res.maximum = 255;
             break;
 
         case SteamAxis::GyroX:
         case SteamAxis::GyroY:
         case SteamAxis::GyroZ:
-            res.minimum = -32768;
+            res.minimum = -32767;
             res.maximum = 32767;
             break;
+        case PseudoAxis::LPadAngle:
+        case PseudoAxis::RPadAngle:
+            res.minimum = -180;
+            res.minimum = 180;
+            break;
+        case PseudoAxis::LPadRadius:
+        case PseudoAxis::RPadRadius:
+            res.minimum = 0;
+            res.minimum = 32767;
+            break;
+
 /*
     case ABS_HAT0X:
     case ABS_HAT0Y:
@@ -198,13 +259,13 @@ void InputDeviceSteam::ff_run(int eff, bool on)
 {
     if (on)
     {
-        printf("haptic on %d\n", eff);
+        //printf("haptic on %d\n", eff);
         m_steam.haptic(true, 5000, 5000, 65535);
         m_steam.haptic(false, 5000, 5000, 65535);
     }
     else
     {
-        printf("haptic off %d\n", eff);
+        //printf("haptic off %d\n", eff);
         m_steam.haptic(true, 1, 1, 1);
         m_steam.haptic(false, 1, 1, 1);
     }

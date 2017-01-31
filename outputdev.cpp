@@ -239,7 +239,7 @@ PollResult OutputDevice::on_poll(int event)
                 uinput_ff_upload ff{};
                 ff.request_id = ev.value;
                 test(ioctl(m_fd.get(), UI_BEGIN_FF_UPLOAD, &ff), "UI_BEGIN_FF_UPLOAD");
-                printf("UPLOAD 0x%X, id=%d (%d, %d)\n", ff.effect.type, ff.effect.id, ff.effect.u.rumble.weak_magnitude, ff.effect.u.rumble.strong_magnitude);
+                //printf("UPLOAD 0x%X, id=%d (%d, %d)\n", ff.effect.type, ff.effect.id, ff.effect.u.rumble.weak_magnitude, ff.effect.u.rumble.strong_magnitude);
                 auto &ffout = m_ff[ff.effect.type];
                 auto device = ffout->get_device();
                 int out_id = ff.effect.id;
@@ -261,7 +261,7 @@ PollResult OutputDevice::on_poll(int event)
                 uinput_ff_erase ff{};
                 ff.request_id = ev.value;
                 test(ioctl(m_fd.get(), UI_BEGIN_FF_ERASE, &ff), "UI_BEGIN_FF_ERASE");
-                printf("ERASE %d\n", ff.effect_id);
+                //printf("ERASE %d\n", ff.effect_id);
                 if (ff.effect_id < 0 || ff.effect_id >= m_effects.size())
                 {
                     ff.retval = -EINVAL;
@@ -292,7 +292,7 @@ PollResult OutputDevice::on_poll(int event)
         break;
     case EV_FF:
         {
-            printf("FF %s id=%d\n", ev.value? "start" : "stop", ev.code);
+            //printf("FF %s id=%d\n", ev.value? "start" : "stop", ev.code);
             if (ev.code >= 0 && ev.code < m_effects.size())
             {
                 auto &effect = m_effects[ev.code];
