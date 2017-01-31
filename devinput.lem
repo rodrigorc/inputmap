@@ -41,8 +41,9 @@
 
 %left QUESTION.
 %left COMMA.
-%left GT LT.
-%left AND OR.
+%left AND.
+%left OR.
+%nonassoc GT LT.
 %left PLUS MINUS.
 
 input ::= expr(A). { args->input = A; }
