@@ -64,6 +64,16 @@ int ValueOper::get_value()
         return m_left->get_value() && m_right->get_value()? 1 : 0;
     case InputToken_OR:
         return m_left->get_value() || m_right->get_value()? 1 : 0;
+    case InputToken_MULT:
+        return m_left->get_value() * m_right->get_value();
+    case InputToken_DIV:
+        {
+            int r = m_right->get_value();
+            if (r != 0)
+                return m_left->get_value() / r;
+            else
+                return 0;
+        }
     default:
         return 0;
     }
@@ -181,6 +191,12 @@ std::unique_ptr<ValueExpr> parse_ref(const std::string &desc, IInputByName &find
                 break;
             case '<':
                 DevInputParse(parser, InputToken_LT, 0, &args);
+                break;
+            case '*':
+                DevInputParse(parser, InputToken_MULT, 0, &args);
+                break;
+            case '/':
+                DevInputParse(parser, InputToken_DIV, 0, &args);
                 break;
             default:
                 printf("*** unknown character %c\n", desc[pos0]);

@@ -45,6 +45,7 @@
 %left OR.
 %nonassoc GT LT.
 %left PLUS MINUS.
+%left MULT DIV.
 
 input ::= expr(A). { args->input = A; }
 
@@ -60,6 +61,8 @@ expr(A) ::= expr(B) AND expr(C). { A = new ValueOper(InputToken_AND, B, C); }
 expr(A) ::= expr(B) OR expr(C). { A = new ValueOper(InputToken_OR, B, C); }
 expr(A) ::= expr(B) GT expr(C). { A = new ValueOper(InputToken_GT, B, C); }
 expr(A) ::= expr(B) LT expr(C). { A = new ValueOper(InputToken_LT, B, C); }
+expr(A) ::= expr(B) MULT expr(C). { A = new ValueOper(InputToken_MULT, B, C); }
+expr(A) ::= expr(B) DIV expr(C). { A = new ValueOper(InputToken_DIV, B, C); }
 
 value_ref(A) ::= NAME(B) PERIOD NAME(C). {
     STRING(b, B);
