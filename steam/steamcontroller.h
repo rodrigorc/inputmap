@@ -56,7 +56,7 @@ enum SteamButton
     West         = 0x000400,
     South        = 0x000800,
     Menu         = 0x001000,
-    Steam        = 0x002000,
+    Logo         = 0x002000,
     Escape       = 0x004000,
     LBack        = 0x008000,
     RBack        = 0x010000,

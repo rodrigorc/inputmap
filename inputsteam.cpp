@@ -72,7 +72,7 @@ static EventName g_steam_button_names[] =
     {SteamButton::West,         "West"},
     {SteamButton::South,        "South"},
     {SteamButton::Menu,         "Menu"},
-    {SteamButton::Steam,        "Steam"},
+    {SteamButton::Logo,         "Logo"},
     {SteamButton::Escape,       "Escape"},
     {SteamButton::LBack,        "LBack"},
     {SteamButton::RBack,        "RBack"},
@@ -112,11 +112,8 @@ ValueId InputDeviceSteam::parse_value(const std::string &name)
         if (ev.name == name)
             return ValueId{ EV_KEY, ev.id };
     }
-    for (const auto &kv : g_ff_names)
-    {
-        if (kv.name && kv.name == name)
-            return ValueId(EV_FF, kv.id);
-    }
+    if (name == "Rumble")
+        return ValueId(EV_FF, FF_RUMBLE);
     throw std::runtime_error("unknown value name " + name);
 }
 
