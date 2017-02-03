@@ -79,6 +79,208 @@ int ValueOper::get_value()
     }
 }
 
+//////////////////////////
+// Functions
+
+class ValueFunc2 : public ValueExpr
+{
+public:
+    ValueFunc2(int (*f)(int,int), std::unique_ptr<ValueExpr> &&e1, std::unique_ptr<ValueExpr> &&e2)
+        :m_fun(f), m_e1(std::move(e1)), m_e2(std::move(e2))
+    {
+    }
+    int get_value() override
+    {
+        return m_fun(m_e1->get_value(), m_e2->get_value());
+    }
+private:
+    int (*m_fun)(int,int);
+    std::unique_ptr<ValueExpr> m_e1, m_e2;
+};
+
+class ValueFunc3 : public ValueExpr
+{
+public:
+    ValueFunc3(int (*f)(int,int,int), std::unique_ptr<ValueExpr> &&e1, std::unique_ptr<ValueExpr> &&e2, std::unique_ptr<ValueExpr> &&e3)
+        :m_fun(f), m_e1(std::move(e1)), m_e2(std::move(e2)), m_e3(std::move(e3))
+    {
+    }
+    int get_value() override
+    {
+        return m_fun(m_e1->get_value(), m_e2->get_value(), m_e3->get_value());
+    }
+private:
+    int (*m_fun)(int,int,int);
+    std::unique_ptr<ValueExpr> m_e1, m_e2, m_e3;
+};
+
+ValueExpr *create_func_ex(int(*f)(int,int), std::vector<std::unique_ptr<ValueExpr>> &&exprs)
+{
+    if (exprs.size() != 2)
+        throw std::runtime_error("wrong number of arguments in function");
+    return new ValueFunc2(f, std::move(exprs[0]), std::move(exprs[1]));
+}
+ValueExpr *create_func_ex(int(*f)(int,int,int), std::vector<std::unique_ptr<ValueExpr>> &&exprs)
+{
+    if (exprs.size() != 3)
+        throw std::runtime_error("wrong number of arguments in function");
+    return new ValueFunc3(f, std::move(exprs[0]), std::move(exprs[1]), std::move(exprs[2]));
+}
+
+int func_between(int a, int b, int c)
+{
+    if (b < c)
+        return b <= a && a < c;
+    else
+        return c <= a && a < b;
+}
+
+class ValueMouse : public ValueExpr
+{
+public:
+    ValueMouse(std::unique_ptr<ValueExpr> touch, std::unique_ptr<ValueExpr> x)
+        :m_touch(std::move(touch)), m_x(std::move(x)), m_touching(false)
+    {
+    }
+    int get_value() override
+    {
+        int touch = m_touch->get_value();
+        if (!touch)
+        {
+            m_touching = false;
+            return 0;
+        }
+        int x = m_x->get_value();
+        int old = m_old;
+        m_old = x;
+        if (!m_touching)
+        {
+            m_touching = true;
+            return 0;
+        }
+        return x - old;
+    }
+private:
+    std::unique_ptr<ValueExpr> m_touch, m_x, m_fuzz;
+    bool m_touching;
+    int m_old;
+};
+
+class ValueDefuzz : public ValueExpr
+{
+public:
+    ValueDefuzz(std::unique_ptr<ValueExpr> x, std::unique_ptr<ValueExpr> fuzz)
+        :m_x(std::move(x)), m_fuzz(std::move(fuzz)), m_old(0)
+    {
+    }
+    int get_value() override
+    {
+        int x = m_x->get_value();
+        int old = m_old;
+        int fuzz = m_fuzz->get_value();
+	if (fuzz)
+        {
+            if (old - fuzz / 2 < x && x < old + fuzz / 2)
+                x = old;
+
+            if (old - fuzz < x && x < old + fuzz)
+                x = (old * 3 + x) / 4;
+
+            if (old - fuzz * 2 < x && x < old + fuzz * 2)
+                x = (old + x) / 2;
+        }
+        m_old = x;
+        return x;
+    }
+private:
+    std::unique_ptr<ValueExpr> m_x, m_fuzz;
+    bool m_touching;
+    int m_old;
+};
+
+class ValueTurbo : public ValueExpr
+{
+public:
+    ValueTurbo(std::unique_ptr<ValueExpr> x)
+        :m_x(std::move(x)), m_clicked(false)
+    {
+    }
+    int get_value() override
+    {
+        int x = m_x->get_value();
+        if (x)
+            m_clicked = !m_clicked;
+        else
+            m_clicked = false;
+        return m_clicked? 1 : 0;
+    }
+private:
+    std::unique_ptr<ValueExpr> m_x;
+    bool m_clicked;
+};
+
+class ValueToggle : public ValueExpr
+{
+public:
+    ValueToggle(std::unique_ptr<ValueExpr> x)
+        :m_x(std::move(x)), m_prev(false)
+    {
+    }
+    int get_value() override
+    {
+        bool x = m_x->get_value() != 0;
+        if (!m_prev && x) //edge on
+            m_clicked = !m_clicked;
+        m_prev = x;
+        return m_clicked? 1 : 0;
+    }
+private:
+    std::unique_ptr<ValueExpr> m_x;
+    bool m_prev, m_clicked;
+};
+
+ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<ValueExpr>> &&exprs)
+{
+    try
+    {
+        if (name == "between")
+        {
+            return create_func_ex(func_between, std::move(exprs));
+        }
+        else if (name == "mouse")
+        {
+            if (exprs.size() != 2)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueMouse(std::move(exprs[0]), std::move(exprs[1]));
+        }
+        else if (name == "defuzz")
+        {
+            if (exprs.size() != 2)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueDefuzz(std::move(exprs[0]), std::move(exprs[1]));
+        }
+        else if (name == "turbo")
+        {
+            if (exprs.size() != 1)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueTurbo(std::move(exprs[0]));
+        }
+        else if (name == "toggle")
+        {
+            if (exprs.size() != 1)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueToggle(std::move(exprs[0]));
+        }
+        else
+            throw std::runtime_error("unknown function");
+    }
+    catch (std::runtime_error e)
+    {
+        throw std::runtime_error(std::string(e.what()) + ": " + name);
+    }
+    return 0;
+}
+
 ////////////////////
 
 enum class CharCategory

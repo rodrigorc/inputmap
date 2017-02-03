@@ -6,8 +6,8 @@
 #include "devinput-parser.h"
 #include "devinput.h"
 
-#define STRING(x, X) \
-    std::string x{std::move(*X)}; \
+#define LOCAL(x, X) \
+    auto x{std::move(*X)}; \
     delete X
 
 }
@@ -39,6 +39,9 @@
 %type value_const { ValueConst * }
 %destructor value_const { delete $$; }
 
+%type expr_comma_list { std::vector<std::unique_ptr<ValueExpr>> * }
+%destructor expr_comma_list { delete $$; }
+
 %left QUESTION.
 %left COMMA.
 %left AND.
@@ -63,15 +66,20 @@ expr(A) ::= expr(B) GT expr(C). { A = new ValueOper(InputToken_GT, B, C); }
 expr(A) ::= expr(B) LT expr(C). { A = new ValueOper(InputToken_LT, B, C); }
 expr(A) ::= expr(B) MULT expr(C). { A = new ValueOper(InputToken_MULT, B, C); }
 expr(A) ::= expr(B) DIV expr(C). { A = new ValueOper(InputToken_DIV, B, C); }
+expr(A) ::= NAME(B) LPAREN expr_comma_list(C) RPAREN. {
+    LOCAL(b, B);
+    LOCAL(c, C);
+    A = create_func(std::move(b), std::move(c));
+}
 
 value_ref(A) ::= NAME(B) PERIOD NAME(C). {
-    STRING(b, B);
-    STRING(c, C);
+    LOCAL(b, B);
+    LOCAL(c, C);
     A = create_value_ref(b, c, args->finder);
 }
 
 value_const(A) ::= NUMBER(B). {
-    STRING(b, B);
+    LOCAL(b, B);
     char *end;
     long int val = strtol(b.c_str(), &end, 0);
     if (*end)
@@ -79,7 +87,7 @@ value_const(A) ::= NUMBER(B). {
     A = new ValueConst(val);
 }
 value_const(A) ::= MINUS NUMBER(B). {
-    STRING(b, B);
+    LOCAL(b, B);
     char *end;
     long int val = strtol(b.c_str(), &end, 0);
     if (*end)
@@ -87,3 +95,5 @@ value_const(A) ::= MINUS NUMBER(B). {
     A = new ValueConst(-val);
 }
 
+expr_comma_list(A) ::= expr(B). { A = new std::vector<std::unique_ptr<ValueExpr>>(); A->emplace_back(B); }
+expr_comma_list(A) ::= expr_comma_list(B) COMMA expr(C). { B->emplace_back(C); A = B; }

@@ -116,6 +116,7 @@ private:
 };
 
 ValueRef *create_value_ref(const std::string &sdev, const std::string &saxis, IInputByName &finder);
+ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<ValueExpr>> &&exprs);
 
 std::unique_ptr<ValueExpr> parse_ref(const std::string &desc, IInputByName &finder);
 

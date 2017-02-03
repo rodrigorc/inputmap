@@ -144,7 +144,7 @@ int main2(int argc, char **argv)
     while (!g_exit)
     {
         epoll_event epoll_evs[1];
-        int res = epoll_wait(epoll_fd.get(), epoll_evs, countof(epoll_evs), -1);
+        int res = epoll_wait(epoll_fd.get(), epoll_evs, countof(epoll_evs), 10); //TODO conf timeout
         if (res == -1)
         {
             if (errno == EINTR)
@@ -182,14 +182,10 @@ int main2(int argc, char **argv)
         for (auto &d : deletes)
             inputs.remove(d);
 
-        if (!synced.empty())
-        {
-            for (auto &d : outputs)
-                d.sync();
-            for (auto &d : synced)
-                d->flush();
-        }
-
+        for (auto &d : outputs)
+            d.sync();
+        for (auto &d : synced)
+            d->flush();
     }
     printf("Exiting...\n");
     return EXIT_SUCCESS;

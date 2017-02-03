@@ -169,28 +169,6 @@ inline void do_event(std::vector<input_event> &evs, int type, int code, ValueExp
         return;
 
     int value = ref->get_value();
-    /*
-    if (type != ref.value_id.type)
-    {
-#define CTYPE(from, to) (((from) << 4) | (to))
-        switch (CTYPE(ref.value_id.type, type))
-        {
-        case CTYPE(EV_REL, EV_ABS):
-            break;
-        case CTYPE(EV_ABS, EV_REL):
-            break;
-        case CTYPE(EV_REL, EV_KEY):
-            break;
-        case CTYPE(EV_KEY, EV_REL):
-            break;
-        case CTYPE(EV_ABS, EV_KEY):
-            break;
-        case CTYPE(EV_KEY, EV_ABS):
-            value = value? 32767 : 0;
-            break;
-        }
-#undef CTYPE
-    }*/
     evs.push_back(create_event(type, code, value));
 }
 
