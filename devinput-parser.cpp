@@ -400,6 +400,9 @@ std::unique_ptr<ValueExpr> parse_ref(const std::string &desc, IInputByName &find
             case '/':
                 DevInputParse(parser, InputToken_DIV, 0, &args);
                 break;
+            case '$':
+                DevInputParse(parser, InputToken_DOLLAR, 0, &args);
+                break;
             default:
                 printf("*** unknown character %c\n", desc[pos0]);
                 break;

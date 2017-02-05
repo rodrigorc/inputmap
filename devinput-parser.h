@@ -26,7 +26,38 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include <memory>
 #include "inputdev.h"
 
-struct ValueExpr;
+struct ValueExpr
+{
+    virtual ~ValueExpr() {}
+    virtual int get_value() =0;
+};
+
+
+class Variable
+{
+public:
+    Variable(std::unique_ptr<ValueExpr> e)
+        :m_expr(std::move(e)), m_value(0)
+    {}
+    void evaluate()
+    {
+        m_value = m_expr->get_value();
+    }
+    int get_value() const
+    {
+        return m_value;
+    }
+private:
+    std::unique_ptr<ValueExpr> m_expr;
+    int m_value;
+};
+
+struct IInputByName
+{
+    virtual ~IInputByName() {}
+    virtual std::shared_ptr<InputDevice> find_input(const std::string &name) =0;
+    virtual Variable *find_variable(const std::string &name) =0;
+};
 
 struct DevInputArgs
 {
@@ -39,22 +70,16 @@ void *DevInputParseAlloc(void *(*mallocProc)(size_t));
 void DevInputParseFree(void *p, void (*freeProc)(void*));
 void DevInputParse(void *yyp, int yymajor, const std::string *yyminor, DevInputArgs *args);
 
-struct ValueExpr
-{
-    virtual ~ValueExpr() {}
-    virtual int get_value() =0;
-};
-
 class ValueConst : public ValueExpr
 {
 public:
     ValueConst(int val)
-        :value(val)
+        :m_value(val)
     {
     }
-    int get_value() override { return value; }
+    int get_value() override { return m_value; }
 private:
-    int value;
+    int m_value;
 };
 
 class ValueRef : public ValueExpr
@@ -113,6 +138,18 @@ public:
 private:
     int m_oper;
     std::unique_ptr<ValueExpr> m_left, m_right;
+};
+
+class ValueVariable : public ValueExpr
+{
+public:
+    ValueVariable(const Variable *var)
+        :m_var(var)
+    {
+    }
+    int get_value() override { return m_var->get_value(); }
+private:
+    const Variable *m_var;
 };
 
 ValueRef *create_value_ref(const std::string &sdev, const std::string &saxis, IInputByName &finder);

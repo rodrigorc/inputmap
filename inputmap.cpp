@@ -23,6 +23,7 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include <signal.h>
 #include <iostream>
 #include <list>
+#include <map>
 #include <algorithm>
 #include <unistd.h>
 #include <stdio.h>
@@ -48,19 +49,27 @@ template<typename IT>
 class InputFinder : public IInputByName
 {
 public:
-    InputFinder(IT begin, IT end)
-        :m_begin(begin), m_end(end)
+    InputFinder(IT begin, IT end, std::map<std::string, Variable> &variables)
+        :m_begin(begin), m_end(end), m_variables(variables)
     {
     }
-    virtual std::shared_ptr<InputDevice> find_input(const std::string &name)
+    std::shared_ptr<InputDevice> find_input(const std::string &name) override
     {
         auto it = std::find_if(m_begin, m_end, [&name](std::shared_ptr<InputDevice> &x) { return x->name() == name; });
         if (it != m_end)
             return *it;
         return std::shared_ptr<InputDevice>();
     }
+    Variable *find_variable(const std::string &name) override
+    {
+        auto it = m_variables.find(name);
+        if (it == m_variables.end())
+            return nullptr;
+        return &it->second;
+    }
 private:
     IT m_begin, m_end;
+    std::map<std::string, Variable> &m_variables;
 };
 
 int main2(int argc, char **argv)
@@ -102,7 +111,18 @@ int main2(int argc, char **argv)
         }
     }
 
-    InputFinder<decltype(inputs.begin())> inputFinder(inputs.begin(), inputs.end());
+    std::map<std::string, Variable> variables;
+
+    InputFinder<decltype(inputs.begin())> inputFinder(inputs.begin(), inputs.end(), variables);
+
+    if (const IniSection *vars = ini.find_single_section("variables"))
+    {
+        for (auto &entry : *vars)
+        {
+            std::unique_ptr<ValueExpr> exp = parse_ref(entry.value(), inputFinder);
+            variables.emplace(entry.name(), Variable(std::move(exp)));
+        }
+    }
 
     for (auto &s : ini.find_multi_section("output"))
     {
@@ -181,6 +201,9 @@ int main2(int argc, char **argv)
         }
         for (auto &d : deletes)
             inputs.remove(d);
+
+        for (auto &v : variables)
+            v.second.evaluate();
 
         for (auto &d : outputs)
             d.sync();

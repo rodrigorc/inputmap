@@ -42,6 +42,9 @@
 %type expr_comma_list { std::vector<std::unique_ptr<ValueExpr>> * }
 %destructor expr_comma_list { delete $$; }
 
+%type variable { Variable * }
+//variable has no destructor because they live globally
+
 %left QUESTION.
 %left COMMA.
 %left AND.
@@ -55,6 +58,7 @@ input ::= expr(A). { args->input = A; }
 expr(A) ::= LPAREN expr(B) RPAREN. { A = B; }
 expr(A) ::= value_ref(B). { A = B; }
 expr(A) ::= value_const(B). { A = B; }
+expr(A) ::= variable(B). { A = new ValueVariable(B); }
 expr(A) ::= LPAREN expr(B) COMMA expr(C) RPAREN. { A = new ValueTuple(B, C); }
 expr(A) ::= expr(B) QUESTION expr(C) COLON expr(D). { A = new ValueCond(B, C, D); }
 
@@ -93,6 +97,14 @@ value_const(A) ::= MINUS NUMBER(B). {
     if (*end)
         throw std::runtime_error("invalid number: " + b);
     A = new ValueConst(-val);
+}
+
+variable(A) ::= DOLLAR NAME(B). {
+    LOCAL(b, B);
+    Variable *v = args->finder.find_variable(b);
+    if (!v)
+        throw std::runtime_error("undefined variable: " + b);
+    A = v;
 }
 
 expr_comma_list(A) ::= expr(B). { A = new std::vector<std::unique_ptr<ValueExpr>>(); A->emplace_back(B); }

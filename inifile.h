@@ -74,6 +74,12 @@ public:
 
     std::string find_single_value(const std::string &name) const;
     std::vector<std::string> find_multi_value(const std::string &name) const;
+
+    typedef std::vector<IniEntry>::const_iterator entry_iterator;
+    entry_iterator begin() const
+    { return m_entries.begin(); }
+    entry_iterator end() const
+    { return m_entries.end(); }
 private:
     std::string m_name;
     std::vector<IniEntry> m_entries;
