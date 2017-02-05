@@ -40,16 +40,16 @@ InputDeviceEvent::InputDeviceEvent(const IniSection &ini, FD the_fd)
 
     char buf[1024] = "";
     input_id iid;
-    test(ioctl(fd(), EVIOCGID, &iid), "EVIOCGID");
-    printf("    iid=%d %04x:%04x %d\n", iid.bustype, iid.vendor, iid.product, iid.version);
-    test(ioctl(fd(), EVIOCGNAME(sizeof(buf)), buf), "EVIOCGNAME");
-    printf("    name='%s'\n", buf);
-    test(ioctl(fd(), EVIOCGPHYS(sizeof(buf)), buf), "EVIOCGPHYS");
-    printf("    phys='%s'\n", buf);
-    test(ioctl(fd(), EVIOCGUNIQ(sizeof(buf)), buf), "EVIOCGUNIQ");
-    printf("    uniq='%s'\n", buf);
-    test(ioctl(fd(), EVIOCGPROP(sizeof(buf)), buf), "EVIOCGPROP");
-    printf("    prop='%s'\n", buf);
+    if (ioctl(fd(), EVIOCGID, &iid))
+        printf("    iid=%d %04x:%04x %d\n", iid.bustype, iid.vendor, iid.product, iid.version);
+    if (ioctl(fd(), EVIOCGNAME(sizeof(buf)), buf) >= 0)
+        printf("    name='%s'\n", buf);
+    if (ioctl(fd(), EVIOCGPHYS(sizeof(buf)), buf) >= 0)
+        printf("    phys='%s'\n", buf);
+    if (ioctl(fd(), EVIOCGUNIQ(sizeof(buf)), buf) >=0)
+        printf("    uniq='%s'\n", buf);
+    if (ioctl(fd(), EVIOCGPROP(sizeof(buf)), buf) >= 0)
+        printf("    prop='%s'\n", buf);
 
     test(ioctl(fd(), EVIOCGBIT(EV_REL, sizeof(buf)), buf), "EV_REL");
     printf("    rel: ");
