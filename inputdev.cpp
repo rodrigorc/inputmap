@@ -176,6 +176,8 @@ int InputDeviceEvent::get_value(const ValueId &id)
         return m_status.rel[id.code];
     case EV_KEY:
         return m_status.key[id.code];
+    case EV_ABS:
+        return m_status.abs[id.code];
     default:
         return 0;
     }
