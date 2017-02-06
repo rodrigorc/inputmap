@@ -315,6 +315,8 @@ CharCategory next_token(const std::string &txt, size_t &pos)
     {
         char c2 = txt[pos];
         CharCategory cc2 = char_category(c2);
+        if (cc == CharCategory::Letter && cc2 == CharCategory::Number)
+            continue;
         if (cc2 != cc)
             break;
     }
