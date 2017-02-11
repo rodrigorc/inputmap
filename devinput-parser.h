@@ -151,6 +151,21 @@ private:
     std::unique_ptr<ValueExpr> m_left, m_right;
 };
 
+class ValueUnary : public ValueExpr
+{
+public:
+    ValueUnary(int oper, ValueExpr *e)
+        :m_oper(oper), m_expr(e)
+    {
+    }
+    int get_value() override;
+    bool is_constant() const override
+    { return m_expr->is_constant(); }
+private:
+    int m_oper;
+    std::unique_ptr<ValueExpr> m_expr;
+};
+
 class ValueVariable : public ValueExpr
 {
 public:

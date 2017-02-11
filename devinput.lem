@@ -55,6 +55,7 @@
 %nonassoc GT LT.
 %left PLUS MINUS.
 %left MULT DIV.
+%nonassoc NOT.
 
 input ::= expr(A). { args->input = A; }
 
@@ -75,6 +76,8 @@ expr_(A) ::= expr(B) GT expr(C). { A = new ValueOper(InputToken_GT, B, C); }
 expr_(A) ::= expr(B) LT expr(C). { A = new ValueOper(InputToken_LT, B, C); }
 expr_(A) ::= expr(B) MULT expr(C). { A = new ValueOper(InputToken_MULT, B, C); }
 expr_(A) ::= expr(B) DIV expr(C). { A = new ValueOper(InputToken_DIV, B, C); }
+expr_(A) ::= MINUS expr(B). [NOT] { A = new ValueUnary(InputToken_MINUS, B); }
+expr_(A) ::= NOT expr(B). { A = new ValueUnary(InputToken_NOT, B); }
 expr_(A) ::= NAME(B) LPAREN expr_comma_list(C) RPAREN. {
     LOCAL(b, B);
     LOCAL(c, C);
@@ -94,14 +97,6 @@ value_const(A) ::= NUMBER(B). {
     if (*end)
         throw std::runtime_error("invalid number: " + b);
     A = new ValueConst(val);
-}
-value_const(A) ::= MINUS NUMBER(B). {
-    LOCAL(b, B);
-    char *end;
-    long int val = strtol(b.c_str(), &end, 0);
-    if (*end)
-        throw std::runtime_error("invalid number: " + b);
-    A = new ValueConst(-val);
 }
 
 variable(A) ::= DOLLAR NAME(B). {

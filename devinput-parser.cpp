@@ -114,6 +114,19 @@ bool ValueOper::is_constant() const
     }
 }
 
+int ValueUnary::get_value()
+{
+    switch (m_oper)
+    {
+    case InputToken_MINUS:
+        return -m_expr->get_value();
+    case InputToken_NOT:
+        return !m_expr->get_value();
+    default:
+        return 0;
+    }
+}
+
 //////////////////////////
 // Functions
 
@@ -388,6 +401,8 @@ std::unique_ptr<ValueExpr> parse_ref(const std::string &desc, IInputByName &find
                     DevInputParse(parser, InputToken_AND, 0, &args);
                 else if (s == "or")
                     DevInputParse(parser, InputToken_OR, 0, &args);
+                else if (s == "not")
+                    DevInputParse(parser, InputToken_NOT, 0, &args);
                 else
                     DevInputParse(parser, InputToken_NAME, new std::string(std::move(s)), &args);
             }
