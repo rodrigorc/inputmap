@@ -47,8 +47,8 @@
 
 %left QUESTION.
 %left COMMA.
-%left AND.
 %left OR.
+%left AND.
 %nonassoc GT LT.
 %left PLUS MINUS.
 %left MULT DIV.
