@@ -61,9 +61,15 @@ int ValueOper::get_value()
     case InputToken_GT:
         return m_left->get_value() > m_right->get_value()? 1 : 0;
     case InputToken_AND:
-        return m_left->get_value() && m_right->get_value()? 1 : 0;
+        {
+            int a = m_left->get_value();
+            return a ? m_right->get_value() : 0;
+        };
     case InputToken_OR:
-        return m_left->get_value() || m_right->get_value()? 1 : 0;
+        {
+            int a = m_left->get_value();
+            return a ? a : m_right->get_value();
+        }
     case InputToken_MULT:
         return m_left->get_value() * m_right->get_value();
     case InputToken_DIV:
