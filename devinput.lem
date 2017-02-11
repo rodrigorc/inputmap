@@ -33,6 +33,9 @@
 %type expr { ValueExpr * }
 %destructor expr { delete $$; }
 
+%type expr_ { ValueExpr * }
+%destructor expr_ { delete $$; }
+
 %type value_ref { ValueRef * }
 %destructor value_ref { delete $$; }
 
@@ -55,22 +58,24 @@
 
 input ::= expr(A). { args->input = A; }
 
-expr(A) ::= LPAREN expr(B) RPAREN. { A = B; }
-expr(A) ::= value_ref(B). { A = B; }
-expr(A) ::= value_const(B). { A = B; }
-expr(A) ::= variable(B). { A = new ValueVariable(B); }
-expr(A) ::= LPAREN expr(B) COMMA expr(C) RPAREN. { A = new ValueTuple(B, C); }
-expr(A) ::= expr(B) QUESTION expr(C) COLON expr(D). { A = new ValueCond(B, C, D); }
+expr(A) ::= expr_(B). { A = optimize(B); }
 
-expr(A) ::= expr(B) PLUS expr(C). { A = new ValueOper(InputToken_PLUS, B, C); }
-expr(A) ::= expr(B) MINUS expr(C). { A = new ValueOper(InputToken_MINUS, B, C); }
-expr(A) ::= expr(B) AND expr(C). { A = new ValueOper(InputToken_AND, B, C); }
-expr(A) ::= expr(B) OR expr(C). { A = new ValueOper(InputToken_OR, B, C); }
-expr(A) ::= expr(B) GT expr(C). { A = new ValueOper(InputToken_GT, B, C); }
-expr(A) ::= expr(B) LT expr(C). { A = new ValueOper(InputToken_LT, B, C); }
-expr(A) ::= expr(B) MULT expr(C). { A = new ValueOper(InputToken_MULT, B, C); }
-expr(A) ::= expr(B) DIV expr(C). { A = new ValueOper(InputToken_DIV, B, C); }
-expr(A) ::= NAME(B) LPAREN expr_comma_list(C) RPAREN. {
+expr_(A) ::= LPAREN expr(B) RPAREN. { A = B; }
+expr_(A) ::= value_ref(B). { A = B; }
+expr_(A) ::= value_const(B). { A = B; }
+expr_(A) ::= variable(B). { A = new ValueVariable(B); }
+expr_(A) ::= LPAREN expr(B) COMMA expr(C) RPAREN. { A = new ValueTuple(B, C); }
+expr_(A) ::= expr(B) QUESTION expr(C) COLON expr(D). { A = new ValueCond(B, C, D); }
+
+expr_(A) ::= expr(B) PLUS expr(C). { A = new ValueOper(InputToken_PLUS, B, C); }
+expr_(A) ::= expr(B) MINUS expr(C). { A = new ValueOper(InputToken_MINUS, B, C); }
+expr_(A) ::= expr(B) AND expr(C). { A = new ValueOper(InputToken_AND, B, C); }
+expr_(A) ::= expr(B) OR expr(C). { A = new ValueOper(InputToken_OR, B, C); }
+expr_(A) ::= expr(B) GT expr(C). { A = new ValueOper(InputToken_GT, B, C); }
+expr_(A) ::= expr(B) LT expr(C). { A = new ValueOper(InputToken_LT, B, C); }
+expr_(A) ::= expr(B) MULT expr(C). { A = new ValueOper(InputToken_MULT, B, C); }
+expr_(A) ::= expr(B) DIV expr(C). { A = new ValueOper(InputToken_DIV, B, C); }
+expr_(A) ::= NAME(B) LPAREN expr_comma_list(C) RPAREN. {
     LOCAL(b, B);
     LOCAL(c, C);
     A = create_func(std::move(b), std::move(c));

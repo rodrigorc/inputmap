@@ -41,11 +41,22 @@ int ValueTuple::get_value()
     else
         return 0;
 }
+bool ValueTuple::is_constant() const
+{
+    return m_r1->is_constant() && m_r2->is_constant();
+}
 
 int ValueCond::get_value()
 {
     int c = m_cond->get_value();
     return (c ? m_true : m_false)->get_value();
+}
+bool ValueCond::is_constant() const
+{
+    if (!m_cond->is_constant())
+       return false;
+    int c = m_cond->get_value();
+    return (c ? m_true : m_false)->is_constant();
 }
 
 int ValueOper::get_value()
@@ -82,6 +93,24 @@ int ValueOper::get_value()
         }
     default:
         return 0;
+    }
+}
+bool ValueOper::is_constant() const
+{
+    if (!m_left->is_constant())
+        return false;
+    if (m_right->is_constant())
+        return true;
+
+    int a = m_left->get_value();
+    switch (m_oper)
+    {
+    case InputToken_AND:
+        return !a;
+    case InputToken_OR:
+        return a;
+    default:
+        return false;
     }
 }
 
@@ -427,4 +456,25 @@ std::unique_ptr<ValueExpr> parse_ref(const std::string &desc, IInputByName &find
     return std::unique_ptr<ValueExpr>(args.input);
 }
 
+ValueExpr* optimize(ValueExpr *expr)
+{
+    //I will only do basic optimizations. No bytecode or anything fancy.
+    //Not that it will have a big performance gain, I'm doing it just for show.
+
+    //For now, only constant folding:
+    if (expr->is_constant())
+    {
+        //Already a constant, no folding over itself
+        if (dynamic_cast<ValueConst*>(expr))
+            return expr;
+
+        int a = expr->get_value();
+        //printf("Constant folding: %d\n", a);
+        delete expr;
+        //no further optimizations on constant values
+        return new ValueConst(a);
+    }
+
+    return expr;
+}
 

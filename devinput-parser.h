@@ -30,6 +30,8 @@ struct ValueExpr
 {
     virtual ~ValueExpr() {}
     virtual int get_value() =0;
+    virtual bool is_constant() const
+    { return false; }
 };
 
 
@@ -42,6 +44,10 @@ public:
     void evaluate()
     {
         m_value = m_expr->get_value();
+    }
+    bool is_constant() const
+    {
+        return m_expr->is_constant();
     }
     int get_value() const
     {
@@ -78,6 +84,8 @@ public:
     {
     }
     int get_value() override { return m_value; }
+    bool is_constant() const override
+    { return true; }
 private:
     int m_value;
 };
@@ -111,6 +119,7 @@ public:
     {
     }
     int get_value() override;
+    bool is_constant() const override;
 private:
     std::unique_ptr<ValueExpr> m_r1, m_r2;
 };
@@ -123,6 +132,7 @@ public:
     {
     }
     int get_value() override;
+    bool is_constant() const override;
 private:
     std::unique_ptr<ValueExpr> m_cond, m_true, m_false;
 };
@@ -135,6 +145,7 @@ public:
     {
     }
     int get_value() override;
+    bool is_constant() const override;
 private:
     int m_oper;
     std::unique_ptr<ValueExpr> m_left, m_right;
@@ -147,7 +158,10 @@ public:
         :m_var(var)
     {
     }
-    int get_value() override { return m_var->get_value(); }
+    int get_value() override
+    { return m_var->get_value(); }
+    bool is_constant() const override
+    { return m_var->is_constant(); }
 private:
     const Variable *m_var;
 };
@@ -156,6 +170,7 @@ ValueRef *create_value_ref(const std::string &sdev, const std::string &saxis, II
 ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<ValueExpr>> &&exprs);
 
 std::unique_ptr<ValueExpr> parse_ref(const std::string &desc, IInputByName &finder);
+ValueExpr* optimize(ValueExpr *expr);
 
 #endif /* DEVINPUT_PARSER_H_INCLUDED */
 
