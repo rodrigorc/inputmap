@@ -69,7 +69,10 @@ InputDeviceEvent::InputDeviceEvent(const IniSection &ini, FD the_fd)
         if (!kv.name)
             continue;
         if (test_bit(kv.id, (unsigned char*)buf))
+        {
             printf(" %s", kv.name);
+            test(ioctl(fd(), EVIOCGABS(kv.id), &m_status.absinfo[kv.id]), "EVIOCGABS");
+        }
     }
     printf("\n");
 
@@ -168,7 +171,7 @@ void InputDeviceEvent::on_input(input_event &ev)
     }
 }
 
-int InputDeviceEvent::get_value(const ValueId &id)
+value_t InputDeviceEvent::get_value(const ValueId &id)
 {
     switch (id.type)
     {
@@ -177,17 +180,14 @@ int InputDeviceEvent::get_value(const ValueId &id)
     case EV_KEY:
         return m_status.key[id.code];
     case EV_ABS:
-        return m_status.abs[id.code];
+        {
+            value_t x = m_status.abs[id.code];
+            value_t max = m_status.absinfo[id.code].maximum, min = m_status.absinfo[id.code].minimum;
+            return 1 + 2 * (x - max) / (max - min);
+        }
     default:
         return 0;
     }
-}
-
-input_absinfo InputDeviceEvent::get_absinfo(int code)
-{
-    input_absinfo res;
-    test(ioctl(fd(), EVIOCGABS(code), &res), "EVIOCGABS");
-    return res;
 }
 
 void InputDeviceEvent::flush()

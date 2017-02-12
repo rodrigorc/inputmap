@@ -110,20 +110,7 @@ OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
         uinput_abs_setup abs = {};
         abs.code = kv.id;
         abs.absinfo.minimum = -32767;
-        abs.absinfo.maximum = 32767;
-        //test(ioctl(m_fd.get(), UI_SET_ABSBIT, kv.id), "UI_SET_ABSBIT");
-        /*
-        auto dev = m_abs[kv.id].device.lock();
-        if (m_abs[kv.id].value_id.type == EV_ABS)
-        {
-            abs.absinfo = dev->get_absinfo(m_abs[kv.id].value_id.code);
-        }
-        else
-        {
-            abs.absinfo.minimum = -32767;
-            abs.absinfo.maximum = 32767;
-        }
-        */
+        abs.absinfo.maximum = 32767; //TODO: configure ABS range
         test(ioctl(m_fd.get(), UI_ABS_SETUP, &abs), "abs");
     }
 
@@ -168,8 +155,10 @@ inline void do_event(std::vector<input_event> &evs, int type, int code, ValueExp
     if (!ref)
         return;
 
-    int value = ref->get_value();
-    evs.push_back(create_event(type, code, value));
+    value_t value = ref->get_value();
+    if (type == EV_ABS)
+        value *= 32767;
+    evs.push_back(create_event(type, code, static_cast<int>(value)));
 }
 
 void OutputDevice::sync()

@@ -32,6 +32,7 @@ struct InputStatus
     int abs[ABS_CNT];
     int rel[REL_CNT];
     bool key[KEY_CNT];
+    input_absinfo absinfo[ABS_CNT];
 
     InputStatus()
     {
@@ -74,6 +75,8 @@ struct IPollable
     virtual PollResult on_poll(int event) =0;
 };
 
+typedef float value_t;
+
 class InputDevice : public std::enable_shared_from_this<InputDevice>,
                     public IPollable
 {
@@ -82,8 +85,7 @@ public:
     { return m_name; }
 
     virtual ValueId parse_value(const std::string &name) =0;
-    virtual int get_value(const ValueId &id) =0;
-    virtual input_absinfo get_absinfo(int code) =0;
+    virtual value_t get_value(const ValueId &id) =0;
     virtual int ff_upload(const ff_effect &eff) =0;
     virtual int ff_erase(int id) =0;
     virtual void ff_run(int eff, bool on) =0;
@@ -106,8 +108,7 @@ public:
     { return m_fd.get(); }
     virtual ValueId parse_value(const std::string &name);
     virtual PollResult on_poll(int event);
-    virtual int get_value(const ValueId &id);
-    virtual input_absinfo get_absinfo(int code);
+    virtual value_t get_value(const ValueId &id);
     virtual int ff_upload(const ff_effect &eff);
     virtual int ff_erase(int id);
     virtual void ff_run(int eff, bool on);

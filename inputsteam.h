@@ -35,8 +35,7 @@ public:
     { return m_steam.fd(); }
     virtual ValueId parse_value(const std::string &name);
     virtual PollResult on_poll(int event);
-    virtual int get_value(const ValueId &id);
-    virtual input_absinfo get_absinfo(int code);
+    virtual value_t get_value(const ValueId &id);
     virtual int ff_upload(const ff_effect &eff);
     virtual int ff_erase(int id);
     virtual void ff_run(int eff, bool on);

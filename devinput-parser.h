@@ -29,7 +29,7 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 struct ValueExpr
 {
     virtual ~ValueExpr() {}
-    virtual int get_value() =0;
+    virtual value_t get_value() =0;
     virtual bool is_constant() const
     { return false; }
 };
@@ -49,13 +49,13 @@ public:
     {
         return m_expr->is_constant();
     }
-    int get_value() const
+    value_t get_value() const
     {
         return m_value;
     }
 private:
     std::unique_ptr<ValueExpr> m_expr;
-    int m_value;
+    value_t m_value;
 };
 
 struct IInputByName
@@ -79,15 +79,15 @@ void DevInputParse(void *yyp, int yymajor, const std::string *yyminor, DevInputA
 class ValueConst : public ValueExpr
 {
 public:
-    ValueConst(int val)
+    ValueConst(value_t val)
         :m_value(val)
     {
     }
-    int get_value() override { return m_value; }
+    value_t get_value() override { return m_value; }
     bool is_constant() const override
     { return true; }
 private:
-    int m_value;
+    value_t m_value;
 };
 
 class ValueRef : public ValueExpr
@@ -97,7 +97,7 @@ public:
         :m_device(dev), m_value_id(id)
     {
     }
-    int get_value() override;
+    value_t get_value() override;
     std::shared_ptr<InputDevice> get_device()
     {
         return m_device.lock();
@@ -118,7 +118,7 @@ public:
         :m_r1(r1), m_r2(r2)
     {
     }
-    int get_value() override;
+    value_t get_value() override;
     bool is_constant() const override;
 private:
     std::unique_ptr<ValueExpr> m_r1, m_r2;
@@ -131,7 +131,7 @@ public:
         :m_cond(c), m_true(t), m_false(f)
     {
     }
-    int get_value() override;
+    value_t get_value() override;
     bool is_constant() const override;
 private:
     std::unique_ptr<ValueExpr> m_cond, m_true, m_false;
@@ -144,7 +144,7 @@ public:
         :m_oper(oper), m_left(l), m_right(r)
     {
     }
-    int get_value() override;
+    value_t get_value() override;
     bool is_constant() const override;
 private:
     int m_oper;
@@ -158,7 +158,7 @@ public:
         :m_oper(oper), m_expr(e)
     {
     }
-    int get_value() override;
+    value_t get_value() override;
     bool is_constant() const override
     { return m_expr->is_constant(); }
 private:
@@ -173,7 +173,7 @@ public:
         :m_var(var)
     {
     }
-    int get_value() override
+    value_t get_value() override
     { return m_var->get_value(); }
     bool is_constant() const override
     { return m_var->is_constant(); }

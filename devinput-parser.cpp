@@ -22,7 +22,7 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include "devinput-parser.h"
 #include "devinput.h"
 
-int ValueRef::get_value()
+value_t ValueRef::get_value()
 {
     auto dev = m_device.lock();
     if (!dev)
@@ -30,14 +30,14 @@ int ValueRef::get_value()
     return dev->get_value(m_value_id);
 }
 
-int ValueTuple::get_value()
+value_t ValueTuple::get_value()
 {
-    int v1 = m_r1->get_value();
-    int v2 = m_r2->get_value();
+    value_t v1 = m_r1->get_value();
+    value_t v2 = m_r2->get_value();
     if (v1 > 0)
-        return 32767;
+        return 1;
     else if (v2 > 0)
-        return -32767;
+        return -1;
     else
         return 0;
 }
@@ -46,20 +46,20 @@ bool ValueTuple::is_constant() const
     return m_r1->is_constant() && m_r2->is_constant();
 }
 
-int ValueCond::get_value()
+value_t ValueCond::get_value()
 {
-    int c = m_cond->get_value();
+    value_t c = m_cond->get_value();
     return (c ? m_true : m_false)->get_value();
 }
 bool ValueCond::is_constant() const
 {
     if (!m_cond->is_constant())
        return false;
-    int c = m_cond->get_value();
+    value_t c = m_cond->get_value();
     return (c ? m_true : m_false)->is_constant();
 }
 
-int ValueOper::get_value()
+value_t ValueOper::get_value()
 {
     switch (m_oper)
     {
@@ -73,19 +73,19 @@ int ValueOper::get_value()
         return m_left->get_value() > m_right->get_value()? 1 : 0;
     case InputToken_AND:
         {
-            int a = m_left->get_value();
+            value_t a = m_left->get_value();
             return a ? m_right->get_value() : 0;
         };
     case InputToken_OR:
         {
-            int a = m_left->get_value();
+            value_t a = m_left->get_value();
             return a ? a : m_right->get_value();
         }
     case InputToken_MULT:
         return m_left->get_value() * m_right->get_value();
     case InputToken_DIV:
         {
-            int r = m_right->get_value();
+            value_t r = m_right->get_value();
             if (r != 0)
                 return m_left->get_value() / r;
             else
@@ -102,7 +102,7 @@ bool ValueOper::is_constant() const
     if (m_right->is_constant())
         return true;
 
-    int a = m_left->get_value();
+    value_t a = m_left->get_value();
     switch (m_oper)
     {
     case InputToken_AND:
@@ -114,7 +114,7 @@ bool ValueOper::is_constant() const
     }
 }
 
-int ValueUnary::get_value()
+value_t ValueUnary::get_value()
 {
     switch (m_oper)
     {
@@ -133,49 +133,49 @@ int ValueUnary::get_value()
 class ValueFunc2 : public ValueExpr
 {
 public:
-    ValueFunc2(int (*f)(int,int), std::unique_ptr<ValueExpr> &&e1, std::unique_ptr<ValueExpr> &&e2)
+    ValueFunc2(value_t (*f)(value_t,value_t), std::unique_ptr<ValueExpr> &&e1, std::unique_ptr<ValueExpr> &&e2)
         :m_fun(f), m_e1(std::move(e1)), m_e2(std::move(e2))
     {
     }
-    int get_value() override
+    value_t get_value() override
     {
         return m_fun(m_e1->get_value(), m_e2->get_value());
     }
 private:
-    int (*m_fun)(int,int);
+    value_t (*m_fun)(value_t,value_t);
     std::unique_ptr<ValueExpr> m_e1, m_e2;
 };
 
 class ValueFunc3 : public ValueExpr
 {
 public:
-    ValueFunc3(int (*f)(int,int,int), std::unique_ptr<ValueExpr> &&e1, std::unique_ptr<ValueExpr> &&e2, std::unique_ptr<ValueExpr> &&e3)
+    ValueFunc3(value_t (*f)(value_t,value_t,value_t), std::unique_ptr<ValueExpr> &&e1, std::unique_ptr<ValueExpr> &&e2, std::unique_ptr<ValueExpr> &&e3)
         :m_fun(f), m_e1(std::move(e1)), m_e2(std::move(e2)), m_e3(std::move(e3))
     {
     }
-    int get_value() override
+    value_t get_value() override
     {
         return m_fun(m_e1->get_value(), m_e2->get_value(), m_e3->get_value());
     }
 private:
-    int (*m_fun)(int,int,int);
+    value_t (*m_fun)(value_t,value_t,value_t);
     std::unique_ptr<ValueExpr> m_e1, m_e2, m_e3;
 };
 
-ValueExpr *create_func_ex(int(*f)(int,int), std::vector<std::unique_ptr<ValueExpr>> &&exprs)
+ValueExpr *create_func_ex(value_t(*f)(value_t,value_t), std::vector<std::unique_ptr<ValueExpr>> &&exprs)
 {
     if (exprs.size() != 2)
         throw std::runtime_error("wrong number of arguments in function");
     return new ValueFunc2(f, std::move(exprs[0]), std::move(exprs[1]));
 }
-ValueExpr *create_func_ex(int(*f)(int,int,int), std::vector<std::unique_ptr<ValueExpr>> &&exprs)
+ValueExpr *create_func_ex(value_t(*f)(value_t,value_t,value_t), std::vector<std::unique_ptr<ValueExpr>> &&exprs)
 {
     if (exprs.size() != 3)
         throw std::runtime_error("wrong number of arguments in function");
     return new ValueFunc3(f, std::move(exprs[0]), std::move(exprs[1]), std::move(exprs[2]));
 }
 
-int func_between(int a, int b, int c)
+value_t func_between(value_t a, value_t b, value_t c)
 {
     if (b < c)
         return b <= a && a < c;
@@ -190,16 +190,16 @@ public:
         :m_touch(std::move(touch)), m_x(std::move(x)), m_touching(false)
     {
     }
-    int get_value() override
+    value_t get_value() override
     {
-        int touch = m_touch->get_value();
+        value_t touch = m_touch->get_value();
         if (!touch)
         {
             m_touching = false;
             return 0;
         }
-        int x = m_x->get_value();
-        int old = m_old;
+        value_t x = m_x->get_value();
+        value_t old = m_old;
         m_old = x;
         if (!m_touching)
         {
@@ -211,7 +211,7 @@ public:
 private:
     std::unique_ptr<ValueExpr> m_touch, m_x, m_fuzz;
     bool m_touching;
-    int m_old;
+    value_t m_old;
 };
 
 class ValueDefuzz : public ValueExpr
@@ -221,11 +221,11 @@ public:
         :m_x(std::move(x)), m_fuzz(std::move(fuzz)), m_old(0)
     {
     }
-    int get_value() override
+    value_t get_value() override
     {
-        int x = m_x->get_value();
-        int old = m_old;
-        int fuzz = m_fuzz->get_value();
+        value_t x = m_x->get_value();
+        value_t old = m_old;
+        value_t fuzz = m_fuzz->get_value();
 	if (fuzz)
         {
             if (old - fuzz / 2 < x && x < old + fuzz / 2)
@@ -243,7 +243,7 @@ public:
 private:
     std::unique_ptr<ValueExpr> m_x, m_fuzz;
     bool m_touching;
-    int m_old;
+    value_t m_old;
 };
 
 class ValueTurbo : public ValueExpr
@@ -253,9 +253,9 @@ public:
         :m_x(std::move(x)), m_clicked(false)
     {
     }
-    int get_value() override
+    value_t get_value() override
     {
-        int x = m_x->get_value();
+        value_t x = m_x->get_value();
         if (x)
             m_clicked = !m_clicked;
         else
@@ -274,7 +274,7 @@ public:
         :m_x(std::move(x)), m_prev(false)
     {
     }
-    int get_value() override
+    value_t get_value() override
     {
         bool x = m_x->get_value() != 0;
         if (!m_prev && x) //edge on
@@ -341,7 +341,7 @@ enum class CharCategory
 
 CharCategory char_category(char c)
 {
-    if (c >= '0' && c <= '9')
+    if ((c >= '0' && c <= '9'))
         return CharCategory::Number;
     else if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_')
         return CharCategory::Letter;
@@ -362,6 +362,8 @@ CharCategory next_token(const std::string &txt, size_t &pos)
     for (; pos < txt.size(); ++pos)
     {
         char c2 = txt[pos];
+        if (cc == CharCategory::Number && c2 == '.')
+            continue;
         CharCategory cc2 = char_category(c2);
         if (cc == CharCategory::Letter && cc2 == CharCategory::Number)
             continue;
@@ -483,7 +485,7 @@ ValueExpr* optimize(ValueExpr *expr)
         if (dynamic_cast<ValueConst*>(expr))
             return expr;
 
-        int a = expr->get_value();
+        value_t a = expr->get_value();
         //printf("Constant folding: %d\n", a);
         delete expr;
         //no further optimizations on constant values

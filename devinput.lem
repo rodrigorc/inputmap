@@ -92,9 +92,9 @@ value_ref(A) ::= NAME(B) PERIOD NAME(C). {
 
 value_const(A) ::= NUMBER(B). {
     LOCAL(b, B);
-    char *end;
-    long int val = strtol(b.c_str(), &end, 0);
-    if (*end)
+    std::istringstream is(b);
+    value_t val;
+    if (!(is >> val))
         throw std::runtime_error("invalid number: " + b);
     A = new ValueConst(val);
 }

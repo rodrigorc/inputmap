@@ -132,7 +132,7 @@ PollResult InputDeviceSteam::on_poll(int event)
     return PollResult::Sync;
 }
 
-int InputDeviceSteam::get_value(const ValueId &id)
+value_t InputDeviceSteam::get_value(const ValueId &id)
 {
     /*
     if (btn & SteamButton::RightPadTouch)
@@ -152,7 +152,7 @@ int InputDeviceSteam::get_value(const ValueId &id)
                 int x = m_steam.get_axis(SteamAxis::LPadX);
                 int y = m_steam.get_axis(SteamAxis::LPadY);
                 float a = atan2(y, x);
-                return a * (180 / M_PI) + 15;
+                return a / M_PI + 15.0F / 360;
             }
             break;
         case PseudoAxis::RPadAngle:
@@ -160,14 +160,14 @@ int InputDeviceSteam::get_value(const ValueId &id)
                 int x = m_steam.get_axis(SteamAxis::RPadX);
                 int y = m_steam.get_axis(SteamAxis::RPadY);
                 float a = atan2(y, x);
-                return a * (180 / M_PI) - 15;
+                return a / M_PI - 15.0F / 360;
             }
             break;
         case PseudoAxis::LPadRadius:
             {
                 int x = m_steam.get_axis(SteamAxis::LPadX);
                 int y = m_steam.get_axis(SteamAxis::LPadY);
-                float a = hypot(y, x);
+                float a = hypot(y, x) / 32676;
                 return a;
             }
             break;
@@ -175,73 +175,21 @@ int InputDeviceSteam::get_value(const ValueId &id)
             {
                 int x = m_steam.get_axis(SteamAxis::RPadX);
                 int y = m_steam.get_axis(SteamAxis::RPadY);
-                float a = hypot(y, x);
+                float a = hypot(y, x) / 32676;
                 return a;
             }
             break;
+        case SteamAxis::LTrigger:
+        case SteamAxis::RTrigger:
+            //Should idle be 0 or -1? Currently it is 0
+            return m_steam.get_axis(static_cast<SteamAxis>(id.code)) / 255.0F;
         default:
-            return m_steam.get_axis(static_cast<SteamAxis>(id.code));
+            return m_steam.get_axis(static_cast<SteamAxis>(id.code)) / 32767.0F;
         }
     case EV_KEY:
         return m_steam.get_button(static_cast<SteamButton>(id.code));
-        break;
     }
     return 0;
-}
-
-input_absinfo InputDeviceSteam::get_absinfo(int code)
-{
-    input_absinfo res {};
-    res.value = get_value(ValueId(EV_ABS, code));
-    switch (code)
-    {
-        case SteamAxis::X:
-        case SteamAxis::Y:
-        case SteamAxis::StickX:
-        case SteamAxis::StickY:
-        case SteamAxis::LPadX:
-        case SteamAxis::LPadY:
-        case SteamAxis::RPadX:
-        case SteamAxis::RPadY:
-            res.minimum = -32767;
-            res.maximum = 32767;
-            break;
-
-        case SteamAxis::LTrigger:
-        case SteamAxis::RTrigger:
-            res.minimum = 0;
-            res.maximum = 255;
-            break;
-
-        case SteamAxis::GyroX:
-        case SteamAxis::GyroY:
-        case SteamAxis::GyroZ:
-            res.minimum = -32767;
-            res.maximum = 32767;
-            break;
-        case PseudoAxis::LPadAngle:
-        case PseudoAxis::RPadAngle:
-            res.minimum = -180;
-            res.minimum = 180;
-            break;
-        case PseudoAxis::LPadRadius:
-        case PseudoAxis::RPadRadius:
-            res.minimum = 0;
-            res.minimum = 32767;
-            break;
-
-/*
-    case ABS_HAT0X:
-    case ABS_HAT0Y:
-    case ABS_HAT1X:
-    case ABS_HAT1Y:
-        res.minimum = -1;
-        res.maximum = 1;
-        break;
-    default:
-    */
-    }
-    return res;
 }
 
 int InputDeviceSteam::ff_upload(const ff_effect &eff)
