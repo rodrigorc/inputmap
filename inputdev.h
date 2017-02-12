@@ -24,7 +24,7 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <memory>
 #include <linux/input.h>
-#include "fd.h"
+#include "steam/fd.h"
 #include "inifile.h"
 
 struct InputStatus

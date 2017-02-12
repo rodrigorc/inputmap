@@ -28,14 +28,6 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include "fd.h"
 #include "udev-wrapper.h"
 
-/*
-#include <sys/epoll.h>
-#include <linux/hidraw.h>
-#include "udev-wrapper.h"
-#include "inputdev.h"
-#include "inputsteam.h"
-#include "event-codes.h"
-*/
 /************************
  * SteamController interface:
 
@@ -425,30 +417,6 @@ std::string SteamController::get_board()
     reply[13] = 0;
     std::string board = reinterpret_cast<const char *>(reply + 3);
     return board;
-}
-
-static std::vector<std::string> find_udev_devices(udev *ud, udev_device *parent, const char *subsystem, 
-        const char *attr, const char *value,
-        const char *attr2 = nullptr, const char *value2 = nullptr
-        )
-{
-    std::vector<std::string> res;
-    udev_enumerate_ptr ude { udev_enumerate_new(ud) };
-    if (subsystem)
-        udev_enumerate_add_match_subsystem(ude.get(), subsystem);
-    if (attr)
-        udev_enumerate_add_match_sysattr(ude.get(), attr, value);
-    if (attr2)
-        udev_enumerate_add_match_sysattr(ude.get(), attr2, value2);
-    if (parent)
-        udev_enumerate_add_match_parent(ude.get(), parent);
-    udev_enumerate_scan_devices(ude.get());
-    for (udev_list_entry *le = udev_enumerate_get_list_entry(ude.get()); le; le = udev_list_entry_get_next(le))
-    {
-        const char *name = udev_list_entry_get_name(le);
-        res.push_back(name);
-    }
-    return res;
 }
 
 static std::vector<std::string> find_steam_devpaths()

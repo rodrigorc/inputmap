@@ -23,7 +23,6 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include <sys/epoll.h>
 #include <linux/hidraw.h>
 #include <math.h>
-#include "udev-wrapper.h"
 #include "inputdev.h"
 #include "inputsteam.h"
 #include "event-codes.h"

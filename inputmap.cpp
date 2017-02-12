@@ -36,6 +36,8 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include "inifile.h"
 #include "inputsteam.h"
 #include "outputdev.h"
+#include "steam/udev-wrapper.h"
+#include "steam/fd.h"
 #include "steam/steamcontroller.h"
 
 void help(const char *name)

@@ -22,7 +22,7 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef OUTPUTDEV_H_INCLUDED
 #define OUTPUTDEV_H_INCLUDED
 
-#include "fd.h"
+#include "steam/fd.h"
 #include "inifile.h"
 #include "inputdev.h"
 #include "devinput-parser.h"
