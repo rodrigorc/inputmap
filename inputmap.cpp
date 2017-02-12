@@ -75,6 +75,63 @@ private:
     std::map<std::string, Variable> &m_variables;
 };
 
+struct FoundInputDevice
+{
+    std::string dev;
+    input_id iid;
+};
+
+std::vector<FoundInputDevice> list_input_devices()
+{
+    std::vector<FoundInputDevice> res;
+    udev_ptr ud { udev_new() };
+    auto udevs = find_udev_devices(ud.get(), nullptr, "input", nullptr, nullptr);
+    for (auto udev : udevs)
+    {
+        udev_device_ptr dx { udev_device_new_from_syspath(ud.get(), udev.c_str()) };
+        const char *dev = udev_device_get_devnode(dx.get());
+
+        if (!dev)
+            continue;
+        auto slash = udev.rfind('/');
+        if (slash == std::string::npos)
+            continue;
+        if (udev.substr(slash + 1, 5) != "event")
+            continue;
+
+        FD fd { open(dev, O_RDONLY|O_CLOEXEC) };
+        if (!fd)
+            continue;
+
+        FoundInputDevice fid;
+        fid.dev = dev;
+        if (ioctl(fd.get(), EVIOCGID, &fid.iid) < 0)
+            continue;
+
+        res.push_back(fid);
+    }
+    return res;
+}
+
+const FoundInputDevice *find_input_device(const std::vector<FoundInputDevice> &fids, int bus, const std::string &vp)
+{
+    auto colon = vp.find(':');
+    if (colon == std::string::npos)
+        throw std::runtime_error("invalid vendor:product pair: " + vp);
+
+    int vendor = parse_hex_int(vp.substr(0, colon), -1);
+    int product = parse_hex_int(vp.substr(colon + 1), -1);
+    if (vendor == -1 || product == -1)
+        throw std::runtime_error("invalid vendor:product pair: " + vp);
+
+    for (auto &fid: fids)
+    {
+        if (bus == fid.iid.bustype && vendor == fid.iid.vendor && product == fid.iid.product)
+            return &fid;
+    }
+    throw std::runtime_error("device " + vp + " not found");
+}
+
 int main2(int argc, char **argv)
 {
     int opt;
@@ -97,21 +154,47 @@ int main2(int argc, char **argv)
     std::list<std::shared_ptr<InputDevice>> inputs;
     std::list<OutputDevice> outputs;
 
+    std::vector<FoundInputDevice> fids = list_input_devices();
+
     for (auto &s : ini.find_multi_section("input"))
     {
         std::string id = s->find_single_value("ID");
-        printf("id='%s'\n", id.c_str());
 
         if (id == "steam" || id == "Steam" || id == "STEAM")
         {
             auto dev = std::make_shared<InputDeviceSteam>(*s);
             inputs.push_back(dev);
+            continue;
         }
-        else
+
+        if (!id.empty())
+            id = "/dev/input/by-id/" + id;
+
+        if (id.empty())
         {
-            auto dev = InputDeviceEventCreate(*s, id);
-            inputs.push_back(dev);
+            std::string usb = s->find_single_value("usb");
+            if (!usb.empty())
+            {
+                const FoundInputDevice *fid = find_input_device(fids, BUS_USB, usb);
+                id = fid->dev;
+            }
         }
+        if (id.empty())
+        {
+            std::string pci = s->find_single_value("pci");
+            if (!pci.empty())
+            {
+                const FoundInputDevice *fid = find_input_device(fids, BUS_PCI, pci);
+                id = fid->dev;
+            }
+        }
+
+        if (id.empty())
+            throw std::runtime_error("input section without device");
+
+        printf("id='%s'\n", id.c_str());
+        auto dev = InputDeviceEventCreate(*s, id);
+        inputs.push_back(dev);
     }
 
     std::map<std::string, Variable> variables;

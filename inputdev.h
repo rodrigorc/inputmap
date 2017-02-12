@@ -97,7 +97,7 @@ private:
     std::string m_name;
 };
 
-std::shared_ptr<InputDevice> InputDeviceEventCreate(const IniSection &ini, const std::string &id);
+std::shared_ptr<InputDevice> InputDeviceEventCreate(const IniSection &ini, const std::string &dev);
 
 class InputDeviceEvent : public InputDevice
 {

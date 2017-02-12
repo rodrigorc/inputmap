@@ -40,7 +40,7 @@ InputDeviceEvent::InputDeviceEvent(const IniSection &ini, FD the_fd)
 
     char buf[1024] = "";
     input_id iid;
-    if (ioctl(fd(), EVIOCGID, &iid))
+    if (ioctl(fd(), EVIOCGID, &iid) >= 0)
         printf("    iid=%d %04x:%04x %d\n", iid.bustype, iid.vendor, iid.product, iid.version);
     if (ioctl(fd(), EVIOCGNAME(sizeof(buf)), buf) >= 0)
         printf("    name='%s'\n", buf);
@@ -222,9 +222,8 @@ void InputDeviceEvent::ff_run(int eff, bool on)
     test(write(fd(), &ev, sizeof(ev)), "write ff");
 }
 
-std::shared_ptr<InputDevice> InputDeviceEventCreate(const IniSection &ini, const std::string &id)
+std::shared_ptr<InputDevice> InputDeviceEventCreate(const IniSection &ini, const std::string &dev)
 {
-    std::string dev = "/dev/input/by-id/" + id;
     FD fd { FD_open(dev.c_str(), O_RDWR|O_CLOEXEC) };
     return std::make_shared<InputDeviceEvent>(ini, std::move(fd));
 }
