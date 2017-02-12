@@ -31,6 +31,7 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include <linux/input.h>
 #include <linux/uinput.h>
 #include <sys/epoll.h>
+#include <pwd.h>
 
 #include "inifile.h"
 #include "inputsteam.h"
@@ -160,6 +161,25 @@ int main2(int argc, char **argv)
     }
 
     nice(-10);
+
+    //Drop privileges if run as a root set-user-id
+    setgid(getgid());
+    setuid(getuid());
+    if (getuid() == 0) //still root? maybe used sudo or su
+    {                  //then drop to nobody, if possible
+        char buf[1024];
+        passwd pwd, *nobody;
+        getpwnam_r("nobody", &pwd, buf, sizeof(buf), &nobody);
+        if (nobody)
+        {
+            setgid(nobody->pw_gid);
+            setuid(nobody->pw_uid);
+        }
+        else
+        {
+            fprintf(stderr, "Warning! nobody user not found, still running as root\n");
+        }
+    }
 
     while (!g_exit)
     {
