@@ -132,6 +132,62 @@ const FoundInputDevice *find_input_device(const std::vector<FoundInputDevice> &f
     throw std::runtime_error("device " + vp + " not found");
 }
 
+std::string find_input_device_from_section(const std::vector<FoundInputDevice> &fids, const IniSection *s)
+{
+    std::string sdev = s->find_single_value("dev");
+    if (!sdev.empty())
+        return sdev;
+
+    std::string sbyid = s->find_single_value("by-id");
+    if (!sbyid.empty())
+        return "/dev/input/by-id/" + sbyid;
+
+    std::string sbypath = s->find_single_value("by-path");
+    if (!sbypath.empty())
+        return "/dev/input/by-path/" + sbypath;
+
+    struct
+    {
+        const char *name;
+        int id;
+    } buses[] =
+    {
+        {"usb", BUS_USB},
+        {"pci", BUS_PCI},
+        {"isapnp", BUS_ISAPNP},
+        {"usb", BUS_USB},
+        {"hil", BUS_HIL},
+        {"bluetooth", BUS_BLUETOOTH},
+        {"virtual", BUS_VIRTUAL},
+        {"isa", BUS_ISA},
+        {"i8042", BUS_I8042},
+        {"xtkbd", BUS_XTKBD},
+        {"rs232", BUS_RS232},
+        {"gameport", BUS_GAMEPORT},
+        {"parport", BUS_PARPORT},
+        {"amiga", BUS_AMIGA},
+        {"adb", BUS_ADB},
+        {"i2c", BUS_I2C},
+        {"host", BUS_HOST},
+        {"gsc", BUS_GSC},
+        {"atari", BUS_ATARI},
+        {"spi", BUS_SPI},
+        {"rmi", BUS_RMI},
+        {"cec", BUS_CEC},
+    };
+    for (const auto &bus : buses)
+    {
+        std::string sbus = s->find_single_value(bus.name);
+        if (!sbus.empty())
+        {
+            const FoundInputDevice *fid = find_input_device(fids, bus.id, sbus);
+            return fid->dev;
+        }
+    }
+
+    throw std::runtime_error("input section without device: " + s->name());
+}
+
 int main2(int argc, char **argv)
 {
     int opt;
@@ -156,44 +212,16 @@ int main2(int argc, char **argv)
 
     std::vector<FoundInputDevice> fids = list_input_devices();
 
+    for (auto &s : ini.find_multi_section("steam"))
+    {
+        auto dev = std::make_shared<InputDeviceSteam>(*s);
+        inputs.push_back(dev);
+    }
     for (auto &s : ini.find_multi_section("input"))
     {
-        std::string id = s->find_single_value("ID");
-
-        if (id == "steam" || id == "Steam" || id == "STEAM")
-        {
-            auto dev = std::make_shared<InputDeviceSteam>(*s);
-            inputs.push_back(dev);
-            continue;
-        }
-
-        if (!id.empty())
-            id = "/dev/input/by-id/" + id;
-
-        if (id.empty())
-        {
-            std::string usb = s->find_single_value("usb");
-            if (!usb.empty())
-            {
-                const FoundInputDevice *fid = find_input_device(fids, BUS_USB, usb);
-                id = fid->dev;
-            }
-        }
-        if (id.empty())
-        {
-            std::string pci = s->find_single_value("pci");
-            if (!pci.empty())
-            {
-                const FoundInputDevice *fid = find_input_device(fids, BUS_PCI, pci);
-                id = fid->dev;
-            }
-        }
-
-        if (id.empty())
-            throw std::runtime_error("input section without device");
-
-        printf("id='%s'\n", id.c_str());
-        auto dev = InputDeviceEventCreate(*s, id);
+        std::string devname = find_input_device_from_section(fids, s);
+        printf("dev='%s'\n", devname.c_str());
+        auto dev = InputDeviceEventCreate(*s, devname);
         inputs.push_back(dev);
     }
 
@@ -219,13 +247,11 @@ int main2(int argc, char **argv)
 
     if (inputs.empty())
     {
-        fprintf(stderr, "no inputs");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "warning: no inputs");
     }
     if (outputs.empty())
     {
-        fprintf(stderr, "no outputs");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "warning: no outputs");
     }
 
     FD epoll_fd { epoll_create1(O_CLOEXEC) };

@@ -35,23 +35,33 @@ And you are ready to go. You may need to run the program as root, depending on y
 
 The INI configuration file is quite simple. You can only have two types of sections:
 
- * `[input]`: defines an input physical device.
+ * `[input]`: defines a standard input physical device.
+ * `[steam]`: defines a SteamController input physical device.
  * `[output]`: defines an output virtual device.
 
 You can write as many sections of any of these as you want.
 
 ### `[input]` section.
 
-There are two mandatory values in this section:
+There are several ways to describe the device referred to by this section:
 
-  * `ID`: it is the device to be used as input. It can either be a name from `/dev/input/by-id/*` (without the path) to use the input device or the special name `Steam` for a SteamController.
+  * `dev`: The full name of the input device, such as `/dev/input/event1`. Since the device name is not stable across reboots, you should try other approach first.
+  * `by-id`: A shortcut to refer to a device from `/dev/input/by-id`. This one should be stable across reboots.
+  * `by-path`: A shortcut to refer to a device from `/dev/input/by-path`. This identifies the port where the device is connected plut the device itself.
+  * `usb`: A tuple of two hexadecimal values, separated by `:` that identifies the USB device, such as `1234:5678`.
+  * `pci`, `i8042`, `bluetooth`, ...: Just like `usb`, but for this other bus. Only one bus can be specified.
+
+These values are mandatory:
+
   * `name`: the name to refer to this device from the rest of the file. A single unique word, made of letters numbers and underscore.
 
-If `ID` is a `/dev/input/by-id/*` device, then there are these additional optional values:
+These values are optional:
 
   * `grab`: a boolean value (`Y` / `N`), defaults to `N`. If `Y` then the device is _grabbed_, that is it is prevented from sending input events to the rest of the system.
 
-If the `ID` is `Steam` then there are these additional optional values:
+### `[steam]` section.
+
+This section describes a SteamController device. The `name` value is mandatory, just like in `[input]`. Additionally, there are these possible values:
 
   * `serial`: Only a SteamController with this serial number will be used for this input device. Useful if you have several of them.
   * `mouse`: a boolean value (`Y` / `N`), defaults to `N`. If `N` then the builtin mouse emulation of the controller will be disabled.
@@ -80,7 +90,7 @@ The value itself describes how the value of that button is obtained. The easiest
 For example, to map the keys 1 and 2 to the left and right mouse buttons:
 
     [input]
-    ID=usb-USB_Keyboard-event-kbd
+    by-id=usb-USB_Keyboard-event-kbd
     name=keyb
 
     [output]
@@ -90,7 +100,7 @@ For example, to map the keys 1 and 2 to the left and right mouse buttons:
 To create a virtual axis, either relative or absolute, you do the same as with the buttons:
 
     [input]
-    ID=usb-USB_Joystick-event-joystick
+    by-id=usb-USB_Joystick-event-joystick
     name=joy
 
     [output]
