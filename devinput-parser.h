@@ -111,19 +111,6 @@ private:
     ValueId m_value_id;
 };
 
-class ValueTuple : public ValueExpr
-{
-public:
-    ValueTuple(ValueExpr *r1, ValueExpr *r2)
-        :m_r1(r1), m_r2(r2)
-    {
-    }
-    value_t get_value() override;
-    bool is_constant() const override;
-private:
-    std::unique_ptr<ValueExpr> m_r1, m_r2;
-};
-
 class ValueCond : public ValueExpr
 {
 public:

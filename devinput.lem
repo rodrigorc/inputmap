@@ -65,7 +65,6 @@ expr_(A) ::= LPAREN expr(B) RPAREN. { A = B; }
 expr_(A) ::= value_ref(B). { A = B; }
 expr_(A) ::= value_const(B). { A = B; }
 expr_(A) ::= variable(B). { A = new ValueVariable(B); }
-expr_(A) ::= LPAREN expr(B) COMMA expr(C) RPAREN. { A = new ValueTuple(B, C); }
 expr_(A) ::= expr(B) QUESTION expr(C) COLON expr(D). { A = new ValueCond(B, C, D); }
 
 expr_(A) ::= expr(B) PLUS expr(C). { A = new ValueOper(InputToken_PLUS, B, C); }

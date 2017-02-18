@@ -30,22 +30,6 @@ value_t ValueRef::get_value()
     return dev->get_value(m_value_id);
 }
 
-value_t ValueTuple::get_value()
-{
-    value_t v1 = m_r1->get_value();
-    value_t v2 = m_r2->get_value();
-    if (v1 > 0)
-        return 1;
-    else if (v2 > 0)
-        return -1;
-    else
-        return 0;
-}
-bool ValueTuple::is_constant() const
-{
-    return m_r1->is_constant() && m_r2->is_constant();
-}
-
 value_t ValueCond::get_value()
 {
     value_t c = m_cond->get_value();
