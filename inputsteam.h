@@ -42,7 +42,7 @@ public:
     virtual void flush();
 private:
     SteamController m_steam;
-    unsigned m_count;
+    bool m_accel_enabled = false;
     bool m_auto_haptic_left, m_auto_haptic_right;
 };
 

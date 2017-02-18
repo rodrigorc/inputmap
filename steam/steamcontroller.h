@@ -39,6 +39,10 @@ enum SteamAxis
     GyroX,
     GyroY,
     GyroZ,
+    QuatW,
+    QuatX,
+    QuatY,
+    QuatZ,
 };
 
 enum SteamButton

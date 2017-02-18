@@ -42,6 +42,10 @@ static EventName g_steam_abs_names[] =
     {SteamAxis::GyroX,    "GyroX"},
     {SteamAxis::GyroY,    "GyroY"},
     {SteamAxis::GyroZ,    "GyroZ"},
+    {SteamAxis::QuatW,    "QuatW"},
+    {SteamAxis::QuatX,    "QuatX"},
+    {SteamAxis::QuatY,    "QuatY"},
+    {SteamAxis::QuatZ,    "QuatZ"},
 };
 
 static EventName g_steam_button_names[] =
@@ -74,8 +78,7 @@ static EventName g_steam_button_names[] =
 
 InputDeviceSteam::InputDeviceSteam(const IniSection &ini)
 :InputDevice(ini),
-    m_steam(SteamController::Create(ini.find_single_value("serial").c_str())),
-    m_count(0)
+    m_steam(SteamController::Create(ini.find_single_value("serial").c_str()))
 {
     bool mouse = parse_bool(ini.find_single_value("mouse"), false);
     m_steam.set_emulation_mode(mouse? SteamEmulation::Mouse : SteamEmulation::None);
@@ -92,7 +95,17 @@ ValueId InputDeviceSteam::parse_value(const std::string &name)
     for (const auto &ev : g_steam_abs_names)
     {
         if (ev.name == name)
+        {
+            if (ev.id >= GyroX && ev.id <= QuatZ)
+            {
+                if (!m_accel_enabled)
+                {
+                    m_accel_enabled = true;
+                    m_steam.set_accelerometer(true);
+                }
+            }
             return ValueId{ EV_ABS, ev.id };
+        }
     }
     for (const auto &ev : g_steam_button_names)
     {
@@ -108,7 +121,6 @@ PollResult InputDeviceSteam::on_poll(int event)
 {
     if (!m_steam.on_poll(event))
         return PollResult::None;
-    ++m_count;
 
     if (m_auto_haptic_left)
         if (m_steam.get_button(SteamButton::LPadTouch))

@@ -295,6 +295,14 @@ int SteamController::get_axis(SteamAxis axis)
         return S2(m_data, 36);
     case SteamAxis::GyroZ:
         return S2(m_data, 38);
+    case SteamAxis::QuatW:
+        return S2(m_data, 40);
+    case SteamAxis::QuatX:
+        return S2(m_data, 42);
+    case SteamAxis::QuatY:
+        return S2(m_data, 44);
+    case SteamAxis::QuatZ:
+        return S2(m_data, 46);
     default:
         return 0;
     }
