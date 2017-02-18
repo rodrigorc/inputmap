@@ -150,7 +150,7 @@ std::vector<FoundInputDevice> list_input_devices()
         if (!fd)
         {
             if (g_verbose)
-                printf("%s: %s\n", dev, strerror(errno));
+                fprintf(stderr, "%s: %s\n", dev, strerror(errno));
             continue;
         }
 
@@ -159,7 +159,7 @@ std::vector<FoundInputDevice> list_input_devices()
         if (ioctl(fd.get(), EVIOCGID, &fid.iid) < 0)
         {
             if (g_verbose)
-                printf("%s: %s\n", dev, strerror(errno));
+                fprintf(stderr, "%s: %s\n", dev, strerror(errno));
             continue;
         }
 
@@ -214,6 +214,28 @@ std::string find_input_device_from_section(const std::vector<FoundInputDevice> &
     std::string sbypath = s->find_single_value("by-path");
     if (!sbypath.empty())
         return "/dev/input/by-path/" + sbypath;
+
+    std::string sbyuniq = s->find_single_value("by-uniq");
+    if (!sbyuniq.empty())
+    {
+        for (auto &fid: fids)
+        {
+            if (fid.uniq == sbyuniq)
+                return fid.dev;
+        }
+        throw std::runtime_error("uniq device '" + sbyuniq + "' not found");
+    }
+
+    std::string sbyname = s->find_single_value("by-name");
+    if (!sbyname.empty())
+    {
+        for (auto &fid: fids)
+        {
+            if (fid.name == sbyname)
+                return fid.dev;
+        }
+        throw std::runtime_error("name device '" + sbyname + "' not found");
+    }
 
     for (const auto &bus : g_buses)
     {

@@ -48,8 +48,12 @@ There are several ways to describe the device referred to by this section:
   * `dev`: The full name of the input device, such as `/dev/input/event1`. Since the device name is not stable across reboots, you should try other approach first.
   * `by-id`: A shortcut to refer to a device from `/dev/input/by-id`. This one should be stable across reboots.
   * `by-path`: A shortcut to refer to a device from `/dev/input/by-path`. This identifies the port where the device is connected plut the device itself.
+  * `by-name`: Identifies the device by its name.
+  * `by-uniq`: Identifies the device by its unique name, that is, its serial number, if available.
   * `usb`: A tuple of two hexadecimal values, separated by `:` that identifies the USB device, such as `1234:5678`.
   * `pci`, `i8042`, `bluetooth`, ...: Just like `usb`, but for this other bus. Only one bus can be specified.
+
+You can see the available devices and its properties by using the `-v` option.
 
 These values are mandatory:
 
