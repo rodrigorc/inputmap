@@ -51,6 +51,8 @@ inline int parse_hex_int(const std::string &txt, int def)
     return def;
 }
 
+std::string trim(const std::string &s);
+
 class IniEntry
 {
 friend class IniFile;

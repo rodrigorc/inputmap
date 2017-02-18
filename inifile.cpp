@@ -25,7 +25,7 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include "inifile.h"
 
 
-inline std::string trim(const std::string &s)
+std::string trim(const std::string &s)
 {
    auto wsfront=std::find_if_not(s.begin(),s.end(),[](int c){return std::isspace(c);});
    auto wsback=std::find_if_not(s.rbegin(),s.rend(),[](int c){return std::isspace(c);}).base();

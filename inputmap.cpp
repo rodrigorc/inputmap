@@ -40,9 +40,14 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include "steam/fd.h"
 #include "steam/steamcontroller.h"
 
+
+bool g_verbose = false;
+
 void help(const char *name)
 {
-    fprintf(stderr, "Usage %s file.ini\n", name);
+    printf("Usage %s <options> file.ini\n\n", name);
+    printf("Available options:\n");
+    printf("\t-v: Verbose output.\n");
     exit(EXIT_FAILURE);
 }
 
@@ -75,9 +80,49 @@ private:
     std::map<std::string, Variable> &m_variables;
 };
 
+struct
+{
+    const char *name;
+    int id;
+} g_buses[] =
+{
+    {"usb", BUS_USB},
+    {"pci", BUS_PCI},
+    {"isapnp", BUS_ISAPNP},
+    {"usb", BUS_USB},
+    {"hil", BUS_HIL},
+    {"bluetooth", BUS_BLUETOOTH},
+    {"virtual", BUS_VIRTUAL},
+    {"isa", BUS_ISA},
+    {"i8042", BUS_I8042},
+    {"xtkbd", BUS_XTKBD},
+    {"rs232", BUS_RS232},
+    {"gameport", BUS_GAMEPORT},
+    {"parport", BUS_PARPORT},
+    {"amiga", BUS_AMIGA},
+    {"adb", BUS_ADB},
+    {"i2c", BUS_I2C},
+    {"host", BUS_HOST},
+    {"gsc", BUS_GSC},
+    {"atari", BUS_ATARI},
+    {"spi", BUS_SPI},
+    {"rmi", BUS_RMI},
+    {"cec", BUS_CEC},
+};
+
+const char *bus_name(int bus_id)
+{
+    for (auto &bus: g_buses)
+    {
+        if (bus.id == bus_id)
+            return bus.name;
+    }
+    return "(null)";
+}
+
 struct FoundInputDevice
 {
-    std::string dev;
+    std::string dev, name, uniq;
     input_id iid;
 };
 
@@ -86,6 +131,8 @@ std::vector<FoundInputDevice> list_input_devices()
     std::vector<FoundInputDevice> res;
     udev_ptr ud { udev_new() };
     auto udevs = find_udev_devices(ud.get(), nullptr, "input", nullptr, nullptr);
+    if (g_verbose)
+        printf("Looking for input devices...\n");
     for (auto udev : udevs)
     {
         udev_device_ptr dx { udev_device_new_from_syspath(ud.get(), udev.c_str()) };
@@ -101,14 +148,36 @@ std::vector<FoundInputDevice> list_input_devices()
 
         FD fd { open(dev, O_RDONLY|O_CLOEXEC) };
         if (!fd)
+        {
+            if (g_verbose)
+                printf("%s: %s\n", dev, strerror(errno));
             continue;
+        }
 
         FoundInputDevice fid;
         fid.dev = dev;
         if (ioctl(fd.get(), EVIOCGID, &fid.iid) < 0)
+        {
+            if (g_verbose)
+                printf("%s: %s\n", dev, strerror(errno));
             continue;
+        }
+
+        char buf[1024];
+        //do not fail if the device has no name
+        if (ioctl(fd.get(), EVIOCGNAME(sizeof(buf)), buf) >= 0)
+            fid.name = trim(buf);
+        if (ioctl(fd.get(), EVIOCGUNIQ(sizeof(buf)), buf) >= 0)
+            fid.uniq = trim(buf);
 
         res.push_back(fid);
+        if (g_verbose)
+        {
+            std::string extra;
+            if (!fid.uniq.empty())
+                extra = " : <" + fid.uniq + ">";
+            printf("%04x:%04x %5s %s '%s'%s\n", fid.iid.vendor, fid.iid.product, bus_name(fid.iid.bustype), dev, fid.name.c_str(), extra.c_str());
+        }
     }
     return res;
 }
@@ -146,36 +215,7 @@ std::string find_input_device_from_section(const std::vector<FoundInputDevice> &
     if (!sbypath.empty())
         return "/dev/input/by-path/" + sbypath;
 
-    struct
-    {
-        const char *name;
-        int id;
-    } buses[] =
-    {
-        {"usb", BUS_USB},
-        {"pci", BUS_PCI},
-        {"isapnp", BUS_ISAPNP},
-        {"usb", BUS_USB},
-        {"hil", BUS_HIL},
-        {"bluetooth", BUS_BLUETOOTH},
-        {"virtual", BUS_VIRTUAL},
-        {"isa", BUS_ISA},
-        {"i8042", BUS_I8042},
-        {"xtkbd", BUS_XTKBD},
-        {"rs232", BUS_RS232},
-        {"gameport", BUS_GAMEPORT},
-        {"parport", BUS_PARPORT},
-        {"amiga", BUS_AMIGA},
-        {"adb", BUS_ADB},
-        {"i2c", BUS_I2C},
-        {"host", BUS_HOST},
-        {"gsc", BUS_GSC},
-        {"atari", BUS_ATARI},
-        {"spi", BUS_SPI},
-        {"rmi", BUS_RMI},
-        {"cec", BUS_CEC},
-    };
-    for (const auto &bus : buses)
+    for (const auto &bus : g_buses)
     {
         std::string sbus = s->find_single_value(bus.name);
         if (!sbus.empty())
@@ -191,17 +231,28 @@ std::string find_input_device_from_section(const std::vector<FoundInputDevice> &
 int main2(int argc, char **argv)
 {
     int opt;
-    while ((opt = getopt(argc, argv, "")) != -1)
+    while ((opt = getopt(argc, argv, "v")) != -1)
     {
         switch (opt)
         {
+        case 'v':
+            g_verbose = true;
+            break;
         default:
             help(argv[0]);
         }
     }
 
-    if (optind + 1!= argc)
+    if (optind + 1 != argc)
+    {
+        //if run with -v but without a .ini file, dump the device list instead of the help
+        if (g_verbose)
+        {
+            list_input_devices();
+            exit(1);
+        }
         help(argv[0]);
+    }
 
     std::string name = argv[optind];
     IniFile ini(name);
