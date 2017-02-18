@@ -46,12 +46,10 @@ OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
     us.id.version = parse_int(version, 1);
     us.id.vendor = parse_hex_int(vendor, 0);
     us.id.product = parse_hex_int(product, 0);
-    us.ff_effects_max = 16;
 
     strcpy(us.name, name.c_str());
 
     m_fd = FD_open("/dev/uinput", O_RDWR|O_CLOEXEC);
-    test(ioctl(m_fd.get(), UI_DEV_SETUP, &us), "UI_DEV_SETUP");
     test(ioctl(m_fd.get(), UI_SET_PHYS, phys.c_str()), "UI_SET_PHYS");
 
     bool has_rel = false;
@@ -127,12 +125,14 @@ OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
         m_ff[kv.id] = std::unique_ptr<ValueRef>(xref);
         if (!has_ff)
         {
+            us.ff_effects_max = 16;
             test(ioctl(m_fd.get(), UI_SET_EVBIT, EV_FF), "EV_FF");
             has_ff = true;
         }
         test(ioctl(m_fd.get(), UI_SET_FFBIT, kv.id), "UI_SET_FFBIT");
     }
 
+    test(ioctl(m_fd.get(), UI_DEV_SETUP, &us), "UI_DEV_SETUP");
     test(ioctl(m_fd.get(), UI_DEV_CREATE, 0), "UI_DEV_CREATE");
 }
 
