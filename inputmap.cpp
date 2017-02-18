@@ -120,6 +120,16 @@ const char *bus_name(int bus_id)
     return "(null)";
 }
 
+int bus_id(const char *bus_name)
+{
+    for (auto &bus: g_buses)
+    {
+        if (strcasecmp(bus.name, bus_name) == 0)
+            return bus.id;
+    }
+    throw std::runtime_error(std::string("unknown bus name: ") + bus_name);
+}
+
 struct FoundInputDevice
 {
     std::string dev, name, uniq;

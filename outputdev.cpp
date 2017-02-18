@@ -39,15 +39,10 @@ OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
     if (name.empty())
         name = "InputMap";
     uinput_setup us = {};
-    if (bus == "USB")
-        us.id.bustype = BUS_USB;
-    else if (bus == "BLUETOOTH")
-        us.id.bustype = BUS_BLUETOOTH;
-    else if (bus == "PCI")
-        us.id.bustype = BUS_PCI;
+    if (!bus.empty())
+        us.id.bustype = bus_id(bus.c_str());
     else
         us.id.bustype = BUS_VIRTUAL;
-
     us.id.version = parse_int(version, 1);
     us.id.vendor = parse_hex_int(vendor, 0);
     us.id.product = parse_hex_int(product, 0);

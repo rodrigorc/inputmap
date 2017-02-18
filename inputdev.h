@@ -27,6 +27,8 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include "steam/fd.h"
 #include "inifile.h"
 
+int bus_id(const char *bus_name);
+
 struct InputStatus
 {
     int abs[ABS_CNT];
