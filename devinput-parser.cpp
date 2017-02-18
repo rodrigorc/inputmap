@@ -282,21 +282,22 @@ private:
 class ValueToggle : public ValueExpr
 {
 public:
-    ValueToggle(std::unique_ptr<ValueExpr> x)
-        :m_x(std::move(x)), m_prev(false)
+    ValueToggle(std::unique_ptr<ValueExpr> x, int states)
+        :m_x(std::move(x)), m_prev(false), m_current(0), m_states(states)
     {
     }
     value_t get_value() override
     {
         bool x = m_x->get_value() != 0;
         if (!m_prev && x) //edge on
-            m_clicked = !m_clicked;
+            m_current = (m_current + 1) % m_states;
         m_prev = x;
-        return m_clicked? 1 : 0;
+        return m_current;
     }
 private:
     std::unique_ptr<ValueExpr> m_x;
-    bool m_prev, m_clicked;
+    bool m_prev;
+    int m_current, m_states;
 };
 
 class ValueHypot : public ValueExpr
@@ -381,9 +382,16 @@ ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<Valu
         }
         else if (name == "toggle")
         {
-            if (exprs.size() != 1)
+            if (exprs.size() == 1)
+                return new ValueToggle(std::move(exprs[0]), 2);
+            if (exprs.size() > 2)
                 throw std::runtime_error("wrong number of arguments in function");
-            return new ValueToggle(std::move(exprs[0]));
+            if (!exprs[1]->is_constant())
+                throw std::runtime_error("second argument must be a constant");
+            int c = static_cast<int>(exprs[1]->get_value());
+            if (c < 2)
+                throw std::runtime_error("second argument must be >= 2");
+            return new ValueToggle(std::move(exprs[0]), c);
         }
         else if (name == "hypot")
         {
