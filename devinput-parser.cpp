@@ -114,6 +114,22 @@ value_t ValueUnary::get_value()
 //////////////////////////
 // Functions
 
+class ValueFunc1 : public ValueExpr
+{
+public:
+    ValueFunc1(value_t (*f)(value_t), std::unique_ptr<ValueExpr> &&e1)
+        :m_fun(f), m_e1(std::move(e1))
+    {
+    }
+    value_t get_value() override
+    {
+        return m_fun(m_e1->get_value());
+    }
+private:
+    value_t (*m_fun)(value_t);
+    std::unique_ptr<ValueExpr> m_e1;
+};
+
 class ValueFunc2 : public ValueExpr
 {
 public:
@@ -146,6 +162,12 @@ private:
     std::unique_ptr<ValueExpr> m_e1, m_e2, m_e3;
 };
 
+ValueExpr *create_func_ex(value_t(*f)(value_t), std::vector<std::unique_ptr<ValueExpr>> &&exprs)
+{
+    if (exprs.size() != 1)
+        throw std::runtime_error("wrong number of arguments in function");
+    return new ValueFunc1(f, std::move(exprs[0]));
+}
 ValueExpr *create_func_ex(value_t(*f)(value_t,value_t), std::vector<std::unique_ptr<ValueExpr>> &&exprs)
 {
     if (exprs.size() != 2)
@@ -165,6 +187,11 @@ value_t func_between(value_t a, value_t b, value_t c)
         return b <= a && a < c;
     else
         return c <= a && a < b;
+}
+
+value_t func_bool(value_t a)
+{
+    return a != 0;
 }
 
 class ValueMouse : public ValueExpr
@@ -275,7 +302,11 @@ ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<Valu
 {
     try
     {
-        if (name == "between")
+        if (name == "bool")
+        {
+            return create_func_ex(func_bool, std::move(exprs));
+        }
+        else if (name == "between")
         {
             return create_func_ex(func_between, std::move(exprs));
         }
