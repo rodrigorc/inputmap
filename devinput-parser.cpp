@@ -19,6 +19,7 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+#include <math.h>
 #include "devinput-parser.h"
 #include "devinput.h"
 
@@ -298,6 +299,56 @@ private:
     bool m_prev, m_clicked;
 };
 
+class ValueHypot : public ValueExpr
+{
+public:
+    ValueHypot(std::vector<std::unique_ptr<ValueExpr>> &&exprs)
+        :m_exprs(std::move(exprs))
+    {
+    }
+    value_t get_value() override
+    {
+        value_t res = 0;
+        for (auto &e: m_exprs)
+        {
+            value_t x = e->get_value();
+            res += x*x;
+        }
+        return sqrt(res);
+    }
+    bool is_constant() const override
+    {
+        for (auto &e: m_exprs)
+            if (!e->is_constant())
+                return false;
+        return true;
+    }
+private:
+    std::vector<std::unique_ptr<ValueExpr>> m_exprs;
+};
+
+class ValueAtan2 : public ValueExpr
+{
+public:
+    ValueAtan2(std::unique_ptr<ValueExpr> y, std::unique_ptr<ValueExpr> x)
+        :m_y(std::move(y)), m_x(std::move(x))
+    {
+    }
+    value_t get_value() override
+    {
+        value_t y = m_y->get_value();
+        value_t x = m_x->get_value();
+        return atan2(y, x);
+    }
+    bool is_constant() const override
+    {
+        return m_y->is_constant() && m_x->is_constant();
+    }
+private:
+    std::unique_ptr<ValueExpr> m_y, m_x;
+};
+
+
 ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<ValueExpr>> &&exprs)
 {
     try
@@ -333,6 +384,16 @@ ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<Valu
             if (exprs.size() != 1)
                 throw std::runtime_error("wrong number of arguments in function");
             return new ValueToggle(std::move(exprs[0]));
+        }
+        else if (name == "hypot")
+        {
+            return new ValueHypot(std::move(exprs));
+        }
+        else if (name == "atan2")
+        {
+            if (exprs.size() != 2)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueAtan2(std::move(exprs[0]), std::move(exprs[1]));
         }
         else
             throw std::runtime_error("unknown function");
@@ -420,6 +481,8 @@ std::unique_ptr<ValueExpr> parse_ref(const std::string &desc, IInputByName &find
                     DevInputParse(parser, InputToken_OR, 0, &args);
                 else if (s == "not")
                     DevInputParse(parser, InputToken_NOT, 0, &args);
+                else if (s == "pi")
+                    DevInputParse(parser, InputToken_PI, 0, &args);
                 else
                     DevInputParse(parser, InputToken_NAME, new std::string(std::move(s)), &args);
             }

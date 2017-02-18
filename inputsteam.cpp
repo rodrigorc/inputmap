@@ -27,14 +27,6 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include "inputsteam.h"
 #include "event-codes.h"
 
-enum PseudoAxis
-{
-    LPadAngle = 1000,
-    LPadRadius,
-    RPadAngle,
-    RPadRadius,
-};
-
 static EventName g_steam_abs_names[] =
 {
     {SteamAxis::X,        "X"},
@@ -50,10 +42,6 @@ static EventName g_steam_abs_names[] =
     {SteamAxis::GyroX,    "GyroX"},
     {SteamAxis::GyroY,    "GyroY"},
     {SteamAxis::GyroZ,    "GyroZ"},
-    {PseudoAxis::LPadAngle,  "LPadAngle"},
-    {PseudoAxis::LPadRadius, "LPadRadius"},
-    {PseudoAxis::RPadAngle,  "RPadAngle"},
-    {PseudoAxis::RPadRadius, "RPadRadius"},
 };
 
 static EventName g_steam_button_names[] =
@@ -146,38 +134,6 @@ value_t InputDeviceSteam::get_value(const ValueId &id)
         //For some reason the pads are rotated by about 15 degrees
         switch (id.code)
         {
-        case PseudoAxis::LPadAngle:
-            {
-                int x = m_steam.get_axis(SteamAxis::LPadX);
-                int y = m_steam.get_axis(SteamAxis::LPadY);
-                float a = atan2(y, x);
-                return a / M_PI + 15.0F / 360;
-            }
-            break;
-        case PseudoAxis::RPadAngle:
-            {
-                int x = m_steam.get_axis(SteamAxis::RPadX);
-                int y = m_steam.get_axis(SteamAxis::RPadY);
-                float a = atan2(y, x);
-                return a / M_PI - 15.0F / 360;
-            }
-            break;
-        case PseudoAxis::LPadRadius:
-            {
-                int x = m_steam.get_axis(SteamAxis::LPadX);
-                int y = m_steam.get_axis(SteamAxis::LPadY);
-                float a = hypot(y, x) / 32676;
-                return a;
-            }
-            break;
-        case PseudoAxis::RPadRadius:
-            {
-                int x = m_steam.get_axis(SteamAxis::RPadX);
-                int y = m_steam.get_axis(SteamAxis::RPadY);
-                float a = hypot(y, x) / 32676;
-                return a;
-            }
-            break;
         case SteamAxis::LTrigger:
         case SteamAxis::RTrigger:
             //Should idle be 0 or -1? Currently it is 0

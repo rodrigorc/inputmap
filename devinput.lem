@@ -1,7 +1,7 @@
 %include {
 
-#define NDEBUG
 #include <assert.h>
+#include <math.h>
 #include <string>
 #include "devinput-parser.h"
 #include "devinput.h"
@@ -96,6 +96,10 @@ value_const(A) ::= NUMBER(B). {
     if (!(is >> val))
         throw std::runtime_error("invalid number: " + b);
     A = new ValueConst(val);
+}
+
+value_const(A) ::= PI. {
+    A = new ValueConst(M_PI);
 }
 
 variable(A) ::= DOLLAR NAME(B). {
