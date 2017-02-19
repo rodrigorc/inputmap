@@ -222,9 +222,8 @@ void InputDeviceEvent::ff_run(int eff, bool on)
     test(write(fd(), &ev, sizeof(ev)), "write ff");
 }
 
-std::shared_ptr<InputDevice> InputDeviceEventCreate(const IniSection &ini, const std::string &dev)
+std::shared_ptr<InputDevice> InputDeviceEventCreate(const IniSection &ini, FD fd)
 {
-    FD fd { FD_open(dev.c_str(), O_RDWR|O_CLOEXEC) };
     return std::make_shared<InputDeviceEvent>(ini, std::move(fd));
 }
 

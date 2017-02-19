@@ -132,6 +132,7 @@ int bus_id(const char *bus_name)
 
 struct FoundInputDevice
 {
+    FD fd;
     std::string dev, name, uniq;
     input_id iid;
 };
@@ -180,7 +181,6 @@ std::vector<FoundInputDevice> list_input_devices()
         if (ioctl(fd.get(), EVIOCGUNIQ(sizeof(buf)), buf) >= 0)
             fid.uniq = trim(buf);
 
-        res.push_back(fid);
         if (g_verbose)
         {
             std::string extra;
@@ -188,11 +188,13 @@ std::vector<FoundInputDevice> list_input_devices()
                 extra = " : <" + fid.uniq + ">";
             printf("%04x:%04x %5s %s '%s'%s\n", fid.iid.vendor, fid.iid.product, bus_name(fid.iid.bustype), dev, fid.name.c_str(), extra.c_str());
         }
+        fid.fd = std::move(fd);
+        res.push_back(std::move(fid));
     }
     return res;
 }
 
-const FoundInputDevice *find_input_device(const std::vector<FoundInputDevice> &fids, int bus, const std::string &vp)
+FoundInputDevice *find_input_device(std::vector<FoundInputDevice> &fids, int bus, const std::string &vp)
 {
     auto colon = vp.find(':');
     if (colon == std::string::npos)
@@ -211,19 +213,19 @@ const FoundInputDevice *find_input_device(const std::vector<FoundInputDevice> &f
     throw std::runtime_error("device " + vp + " not found");
 }
 
-std::string find_input_device_from_section(const std::vector<FoundInputDevice> &fids, const IniSection *s)
+FD find_input_device_from_section(std::vector<FoundInputDevice> &fids, const IniSection *s)
 {
     std::string sdev = s->find_single_value("dev");
     if (!sdev.empty())
-        return sdev;
+        return FD { open(sdev.c_str(), O_RDONLY|O_CLOEXEC) };
 
     std::string sbyid = s->find_single_value("by-id");
     if (!sbyid.empty())
-        return "/dev/input/by-id/" + sbyid;
+        return FD { open(("/dev/input/by-id/" + sbyid).c_str(), O_RDONLY|O_CLOEXEC) };
 
     std::string sbypath = s->find_single_value("by-path");
     if (!sbypath.empty())
-        return "/dev/input/by-path/" + sbypath;
+        return FD { open(("/dev/input/by-path/" + sbypath).c_str(), O_RDONLY|O_CLOEXEC) };
 
     std::string sbyuniq = s->find_single_value("by-uniq");
     if (!sbyuniq.empty())
@@ -231,7 +233,7 @@ std::string find_input_device_from_section(const std::vector<FoundInputDevice> &
         for (auto &fid: fids)
         {
             if (fid.uniq == sbyuniq)
-                return fid.dev;
+                return std::move(fid.fd);
         }
         throw std::runtime_error("uniq device '" + sbyuniq + "' not found");
     }
@@ -242,7 +244,7 @@ std::string find_input_device_from_section(const std::vector<FoundInputDevice> &
         for (auto &fid: fids)
         {
             if (fid.name == sbyname)
-                return fid.dev;
+                return std::move(fid.fd);
         }
         throw std::runtime_error("name device '" + sbyname + "' not found");
     }
@@ -252,8 +254,8 @@ std::string find_input_device_from_section(const std::vector<FoundInputDevice> &
         std::string sbus = s->find_single_value(bus.name);
         if (!sbus.empty())
         {
-            const FoundInputDevice *fid = find_input_device(fids, bus.id, sbus);
-            return fid->dev;
+            FoundInputDevice *fid = find_input_device(fids, bus.id, sbus);
+            return std::move(fid->fd);
         }
     }
 
@@ -293,6 +295,10 @@ int main2(int argc, char **argv)
     std::list<std::shared_ptr<InputDevice>> inputs;
     std::list<OutputDevice> outputs;
 
+    //NOTE: close() an input device may take quite some time, so closing the full list of devices
+    //may add up to 1 second (that is 1000 ms!). Not a big deal unless you are waiting for the program
+    //to start. The important thing anyone may be waiting for is the creation of the output devices, so we
+    //delay the closing of the input devices until the output devices are created.
     std::vector<FoundInputDevice> fids = list_input_devices();
 
     for (auto &s : ini.find_multi_section("steam"))
@@ -302,9 +308,11 @@ int main2(int argc, char **argv)
     }
     for (auto &s : ini.find_multi_section("input"))
     {
-        std::string devname = find_input_device_from_section(fids, s);
-        printf("dev='%s'\n", devname.c_str());
-        auto dev = InputDeviceEventCreate(*s, devname);
+        FD fd = find_input_device_from_section(fids, s);
+        if (!fd)
+            throw std::runtime_error("input device alreay in use: " + s->find_single_value("name"));
+        //printf("dev='%s'\n", dev.name.c_str());
+        auto dev = InputDeviceEventCreate(*s, std::move(fd));
         inputs.push_back(dev);
     }
 
@@ -327,6 +335,9 @@ int main2(int argc, char **argv)
         printf("name='%s'\n", id.c_str());
         outputs.emplace_back(*s, inputFinder);
     }
+
+    //Output devices are already created so now we can close the unused input devices (see note above).
+    fids.clear();
 
     if (inputs.empty())
     {
