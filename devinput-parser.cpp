@@ -22,6 +22,7 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include <math.h>
 #include "devinput-parser.h"
 #include "devinput.h"
+#include "quaternion.h"
 
 value_t ValueRef::get_value()
 {
@@ -349,6 +350,95 @@ private:
     std::unique_ptr<ValueExpr> m_y, m_x;
 };
 
+class ValueQuaternion : public ValueExpr
+{
+private:
+    typedef ::Quaternion<value_t> Quaternion;
+
+public:
+    ValueQuaternion(std::unique_ptr<ValueExpr> trig, std::unique_ptr<ValueExpr> w, std::unique_ptr<ValueExpr> x, std::unique_ptr<ValueExpr> y, std::unique_ptr<ValueExpr> z)
+        :m_trig(std::move(trig)), m_w(std::move(w)), m_x(std::move(x)), m_y(std::move(y)), m_z(std::move(z)), m_triggered(false)
+    {
+    }
+    value_t get_value() override
+    {
+        value_t triggered = m_trig->get_value();
+        if (!triggered)
+        {
+            m_triggered = false;
+            m_roll = m_yaw = m_pitch = 0;
+            return 0;
+        }
+
+        //Steam axes are:
+        // * X is right
+        // * Y is forward
+        // * Z is up
+        //But to do proper roll/pitch/yaw we need:
+        // * X is forward
+        // * Y is right
+        // * Z is up
+        //So we just swap X and Y. We also have to change the sign of W to avoid changing the chirality.
+
+        value_t w = -m_w->get_value();
+        value_t x = m_y->get_value();
+        value_t y = m_x->get_value();
+        value_t z = m_z->get_value();
+        Quaternion qt(w, x, y, z);
+
+        if (!m_triggered)
+        {
+            m_triggered = true;
+            m_quat0 = Conjugate(qt);
+            return 0;
+        }
+
+        Quaternion qd = m_quat0 * qt;
+        qd.ToAngles(m_roll, m_pitch, m_yaw);
+        //printf("Q: roll=%f pitch=%f yaw=%f\n", m_roll, m_pitch, m_yaw);
+
+        //value_t ax, ay, az, aa;
+        //qd.ToAxis(ax, ay, az, aa);
+        //printf("Q: X=%f Y=%f Z=%f   Ang=%f\n", ax, ay, az, aa);
+        return m_roll;
+    }
+    virtual value_t get_field(Field field)
+    {
+        switch (field)
+        {
+        case Field::Roll:
+            return m_roll;
+        case Field::Pitch:
+            return m_pitch;
+        case Field::Yaw:
+            return m_yaw;
+        default:
+            return 0;
+        }
+    }
+
+private:
+    std::unique_ptr<ValueExpr> m_trig, m_w, m_x, m_y, m_z;
+    bool m_triggered;
+    Quaternion m_quat0;
+    value_t m_roll, m_pitch, m_yaw;
+};
+
+class ValueField : public ValueExpr
+{
+public:
+    ValueField(std::unique_ptr<ValueExpr> expr, Field field)
+        :m_expr(std::move(expr)), m_field(field)
+    {
+    }
+    value_t get_value() override
+    {
+        return m_expr->get_field(m_field);
+    }
+private:
+    std::unique_ptr<ValueExpr> m_expr;
+    Field m_field;
+};
 
 ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<ValueExpr>> &&exprs)
 {
@@ -402,6 +492,49 @@ ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<Valu
             if (exprs.size() != 2)
                 throw std::runtime_error("wrong number of arguments in function");
             return new ValueAtan2(std::move(exprs[0]), std::move(exprs[1]));
+        }
+        else if (name == "quaternion")
+        {
+            if (exprs.size() != 5)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueQuaternion(std::move(exprs[0]), std::move(exprs[1]), std::move(exprs[2]), std::move(exprs[3]), std::move(exprs[4]));
+
+        }
+        else if (name == "get_x")
+        {
+            if (exprs.size() != 1)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueField(std::move(exprs[0]), ValueExpr::Field::X);
+        }
+        else if (name == "get_y")
+        {
+            if (exprs.size() != 1)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueField(std::move(exprs[0]), ValueExpr::Field::Y);
+        }
+        else if (name == "get_z")
+        {
+            if (exprs.size() != 1)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueField(std::move(exprs[0]), ValueExpr::Field::Z);
+        }
+        else if (name == "get_roll")
+        {
+            if (exprs.size() != 1)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueField(std::move(exprs[0]), ValueExpr::Field::Roll);
+        }
+        else if (name == "get_pitch")
+        {
+            if (exprs.size() != 1)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueField(std::move(exprs[0]), ValueExpr::Field::Pitch);
+        }
+        else if (name == "get_yaw")
+        {
+            if (exprs.size() != 1)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueField(std::move(exprs[0]), ValueExpr::Field::Yaw);
         }
         else
             throw std::runtime_error("unknown function");

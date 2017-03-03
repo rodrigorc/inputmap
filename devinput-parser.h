@@ -28,12 +28,22 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 
 struct ValueExpr
 {
+    enum class Field
+    {
+        X,
+        Y,
+        Z,
+        Yaw,
+        Pitch,
+        Roll,
+    };
     virtual ~ValueExpr() {}
     virtual value_t get_value() =0;
+    virtual value_t get_field(Field field)
+    { return 0; }
     virtual bool is_constant() const
     { return false; }
 };
-
 
 class Variable
 {
@@ -52,6 +62,11 @@ public:
     value_t get_value() const
     {
         return m_value;
+    }
+    value_t get_field(ValueExpr::Field field) const
+    {
+        //fields are not cached
+        return m_expr->get_field(field);
     }
 private:
     std::unique_ptr<ValueExpr> m_expr;
@@ -162,6 +177,8 @@ public:
     }
     value_t get_value() override
     { return m_var->get_value(); }
+    value_t get_field(ValueExpr::Field field) override
+    { return m_var->get_field(field); }
     bool is_constant() const override
     { return m_var->is_constant(); }
 private:
