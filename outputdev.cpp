@@ -49,7 +49,7 @@ OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
 
     strcpy(us.name, name.c_str());
 
-    m_fd = FD_open("/dev/uinput", O_RDWR|O_CLOEXEC);
+    m_fd = FD_open("/dev/uinput", O_RDWR);
     test(ioctl(m_fd.get(), UI_SET_PHYS, phys.c_str()), "UI_SET_PHYS");
 
     bool has_rel = false;

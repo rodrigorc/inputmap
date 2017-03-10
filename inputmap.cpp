@@ -22,6 +22,7 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include <string>
 #include <signal.h>
 #include <iostream>
+#include <fstream>
 #include <list>
 #include <map>
 #include <algorithm>
@@ -42,12 +43,16 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 
 
 bool g_verbose = false;
+bool g_daemonize = false;
+const char *g_writepid;
 
 void help(const char *name)
 {
     printf("Usage %s <options> file.ini\n\n", name);
     printf("Available options:\n");
     printf("\t-v: Verbose output.\n");
+    printf("\t-d: Run in background (daemonize) when all output devices have been created.\n");
+    printf("\t-p <filename>: Write the PID into the given file. Useful to kill the program later.\n");
     exit(EXIT_FAILURE);
 }
 
@@ -157,7 +162,7 @@ std::vector<FoundInputDevice> list_input_devices()
         if (udev.substr(slash + 1, 5) != "event")
             continue;
 
-        FD fd { open(dev, O_RDONLY|O_CLOEXEC) };
+        FD fd { open(dev, O_RDONLY) };
         if (!fd)
         {
             if (g_verbose)
@@ -217,15 +222,15 @@ FD find_input_device_from_section(std::vector<FoundInputDevice> &fids, const Ini
 {
     std::string sdev = s->find_single_value("dev");
     if (!sdev.empty())
-        return FD { open(sdev.c_str(), O_RDONLY|O_CLOEXEC) };
+        return FD { open(sdev.c_str(), O_RDONLY) };
 
     std::string sbyid = s->find_single_value("by-id");
     if (!sbyid.empty())
-        return FD { open(("/dev/input/by-id/" + sbyid).c_str(), O_RDONLY|O_CLOEXEC) };
+        return FD { open(("/dev/input/by-id/" + sbyid).c_str(), O_RDONLY) };
 
     std::string sbypath = s->find_single_value("by-path");
     if (!sbypath.empty())
-        return FD { open(("/dev/input/by-path/" + sbypath).c_str(), O_RDONLY|O_CLOEXEC) };
+        return FD { open(("/dev/input/by-path/" + sbypath).c_str(), O_RDONLY) };
 
     std::string sbyuniq = s->find_single_value("by-uniq");
     if (!sbyuniq.empty())
@@ -265,12 +270,18 @@ FD find_input_device_from_section(std::vector<FoundInputDevice> &fids, const Ini
 int main2(int argc, char **argv)
 {
     int opt;
-    while ((opt = getopt(argc, argv, "v")) != -1)
+    while ((opt = getopt(argc, argv, "vdp:")) != -1)
     {
         switch (opt)
         {
         case 'v':
             g_verbose = true;
+            break;
+        case 'd':
+            g_daemonize = true;
+            break;
+        case 'p':
+            g_writepid = optarg;
             break;
         default:
             help(argv[0]);
@@ -348,7 +359,18 @@ int main2(int argc, char **argv)
         fprintf(stderr, "warning: no outputs");
     }
 
-    FD epoll_fd { epoll_create1(O_CLOEXEC) };
+    if (g_daemonize)
+    {
+        if (daemon(/*nochdir*/1, /*noclose*/1) < 0)
+            perror("daemon");
+    }
+    if (g_writepid)
+    {
+        std::ofstream ofs(g_writepid);
+        ofs << getpid();
+    }
+
+    FD epoll_fd { epoll_create1(0) };
 
     for (auto &input : inputs)
     {

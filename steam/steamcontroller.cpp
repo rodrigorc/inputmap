@@ -462,7 +462,7 @@ SteamController SteamController::Create(const std::string &serial)
     for (const std::string &devpath : devpaths)
     {
         printf("Device %s\n", devpath.c_str());
-        FD fd { FD_open(devpath.c_str(), O_RDWR|O_CLOEXEC) };
+        FD fd { FD_open(devpath.c_str(), O_RDWR) };
         SteamController sc(std::move(fd));
         std::string detected = sc.get_serial();
         printf("Serial '%s'\n", detected.c_str());
