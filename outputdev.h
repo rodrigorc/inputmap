@@ -44,11 +44,12 @@ public:
 
 private:
     FD m_fd;
-    std::unique_ptr<ValueExpr> m_rel[REL_CNT];
-    std::unique_ptr<ValueExpr> m_key[KEY_CNT];
-    std::unique_ptr<ValueExpr> m_abs[ABS_CNT];
-    std::unique_ptr<ValueRef> m_ff[FF_CNT];
+    std::vector<std::pair<int, std::unique_ptr<ValueExpr>>> m_rel;
+    std::vector<std::pair<int, std::unique_ptr<ValueExpr>>> m_key;
+    std::vector<std::pair<int, std::unique_ptr<ValueExpr>>> m_abs;
+    std::vector<std::pair<int, std::unique_ptr<ValueRef>>> m_ff;
 
+    ValueRef *get_ff(int id);
     void write_value(int type, int code, int value);
 
     std::vector<FFEffect> m_effects;

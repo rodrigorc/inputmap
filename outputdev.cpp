@@ -60,7 +60,7 @@ OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
         std::string ref = ini.find_single_value(kv.name);
         if (ref.empty())
             continue;
-        m_rel[kv.id] = parse_ref(ref, inputFinder);
+        m_rel.emplace_back(kv.id, parse_ref(ref, inputFinder));
         if (!has_rel)
         {
             test(ioctl(m_fd.get(), UI_SET_EVBIT, EV_REL), "EV_REL");
@@ -77,7 +77,7 @@ OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
         std::string ref = ini.find_single_value(kv.name);
         if (ref.empty())
             continue;
-        m_key[kv.id] = parse_ref(ref, inputFinder);
+        m_key.emplace_back(kv.id, parse_ref(ref, inputFinder));
         if (!has_key)
         {
             test(ioctl(m_fd.get(), UI_SET_EVBIT, EV_KEY), "EV_KEY");
@@ -94,7 +94,7 @@ OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
         std::string ref = ini.find_single_value(kv.name);
         if (ref.empty())
             continue;
-        m_abs[kv.id] = parse_ref(ref, inputFinder);
+        m_abs.emplace_back(kv.id, parse_ref(ref, inputFinder));
         if (!has_abs)
         {
             test(ioctl(m_fd.get(), UI_SET_EVBIT, EV_ABS), "EV_ABS");
@@ -122,7 +122,7 @@ OutputDevice::OutputDevice(const IniSection &ini, IInputByName &inputFinder)
             throw std::runtime_error("FF ref must be a simple reference to the same FF value");
         }
         pref.release();
-        m_ff[kv.id] = std::unique_ptr<ValueRef>(xref);
+        m_ff.emplace_back(kv.id, std::unique_ptr<ValueRef>(xref));
         if (!has_ff)
         {
             us.ff_effects_max = 16;
@@ -160,18 +160,26 @@ void OutputDevice::sync()
 {
     std::vector<input_event> evs;
 
-    for (int i = 0; i < REL_CNT; ++i)
-        do_event(evs, EV_REL, i, m_rel[i].get());
-    for (int i = 0; i < KEY_CNT; ++i)
-        do_event(evs, EV_KEY, i, m_key[i].get());
-    for (int i = 0; i < ABS_CNT; ++i)
-        do_event(evs, EV_ABS, i, m_abs[i].get());
+    for (auto &v: m_rel)
+        do_event(evs, EV_REL, v.first, v.second.get());
+    for (auto &v: m_key)
+        do_event(evs, EV_KEY, v.first, v.second.get());
+    for (auto &v: m_abs)
+        do_event(evs, EV_ABS, v.first, v.second.get());
 
     if (!evs.empty())
     {
         evs.push_back(create_event(EV_SYN, SYN_REPORT, 0));
         test(write(m_fd.get(), evs.data(), evs.size() * sizeof(input_event)), "write");
     }
+}
+
+ValueRef *OutputDevice::get_ff(int id)
+{
+    for (auto &v: m_ff)
+        if (v.first == id)
+            return v.second.get();
+    return nullptr;
 }
 
 PollResult OutputDevice::on_poll(int event)
@@ -202,10 +210,10 @@ PollResult OutputDevice::on_poll(int event)
                 ff.request_id = ev.value;
                 test(ioctl(m_fd.get(), UI_BEGIN_FF_UPLOAD, &ff), "UI_BEGIN_FF_UPLOAD");
                 //printf("UPLOAD 0x%X, id=%d (%d, %d)\n", ff.effect.type, ff.effect.id, ff.effect.u.rumble.weak_magnitude, ff.effect.u.rumble.strong_magnitude);
-                auto &ffout = m_ff[ff.effect.type];
-                auto device = ffout->get_device();
+                ValueRef *ffout = get_ff(ff.effect.type);
+                auto device = ffout ? ffout->get_device() : nullptr;
                 int out_id = ff.effect.id;
-                int in_id = out_id < 0 ? -EINVAL : device->ff_upload(ff.effect);
+                int in_id = out_id < 0 || !device ? -EINVAL : device->ff_upload(ff.effect);
                 ff.retval = in_id < 0 ? in_id : 0;
                 test(ioctl(m_fd.get(), UI_END_FF_UPLOAD, &ff), "UI_END_FF_UPLOAD");
                 if (in_id >= 0)
