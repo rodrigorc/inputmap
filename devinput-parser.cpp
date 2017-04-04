@@ -301,6 +301,25 @@ private:
     int m_current, m_states;
 };
 
+class ValueEdge : public ValueExpr
+{
+public:
+    ValueEdge(std::unique_ptr<ValueExpr> x)
+        :m_x(std::move(x)), m_prev(false)
+    {
+    }
+    value_t get_value() override
+    {
+        bool x = m_x->get_value() != 0;
+        value_t res = (!m_prev && x); //edge on
+        m_prev = x;
+        return res;
+    }
+private:
+    std::unique_ptr<ValueExpr> m_x;
+    bool m_prev;
+};
+
 class ValueHypot : public ValueExpr
 {
 public:
@@ -482,6 +501,12 @@ ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<Valu
             if (c < 2)
                 throw std::runtime_error("second argument must be >= 2");
             return new ValueToggle(std::move(exprs[0]), c);
+        }
+        else if (name == "edge")
+        {
+            if (exprs.size() != 1)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueEdge(std::move(exprs[0]));
         }
         else if (name == "hypot")
         {
