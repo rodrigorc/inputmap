@@ -48,7 +48,7 @@
 %type variable { Variable * }
 //variable has no destructor because they live globally
 
-%left QUESTION.
+%right QUESTION.
 %left COMMA.
 %left OR.
 %left AND.
