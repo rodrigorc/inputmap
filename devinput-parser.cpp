@@ -200,7 +200,7 @@ class ValueMouse : public ValueExpr
 {
 public:
     ValueMouse(std::unique_ptr<ValueExpr> touch, std::unique_ptr<ValueExpr> x)
-        :m_touch(std::move(touch)), m_x(std::move(x)), m_touching(false)
+        :m_touch(std::move(touch)), m_x(std::move(x)), m_touching(false), m_old(0)
     {
     }
     value_t get_value() override
@@ -224,6 +224,30 @@ public:
 private:
     std::unique_ptr<ValueExpr> m_touch, m_x, m_fuzz;
     bool m_touching;
+    value_t m_old;
+};
+
+class ValueStep : public ValueExpr
+{
+public:
+    ValueStep(std::unique_ptr<ValueExpr> x, std::unique_ptr<ValueExpr> step)
+        :m_x(std::move(x)), m_step(std::move(step)), m_old(0)
+    {
+    }
+    value_t get_value() override
+    {
+        value_t x = m_x->get_value();
+        value_t step = m_step->get_value();
+
+        m_old += x;
+        value_t m = fmod(m_old, step);
+        value_t res = (m_old - m) / step;
+
+        m_old = m;
+        return res;
+    }
+private:
+    std::unique_ptr<ValueExpr> m_x, m_step;
     value_t m_old;
 };
 
@@ -476,6 +500,12 @@ ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<Valu
             if (exprs.size() != 2)
                 throw std::runtime_error("wrong number of arguments in function");
             return new ValueMouse(std::move(exprs[0]), std::move(exprs[1]));
+        }
+        else if (name == "step")
+        {
+            if (exprs.size() != 2)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueStep(std::move(exprs[0]), std::move(exprs[1]));
         }
         else if (name == "defuzz")
         {
