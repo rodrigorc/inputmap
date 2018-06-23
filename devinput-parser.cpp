@@ -400,17 +400,20 @@ private:
 
 public:
     ValueQuaternion(std::unique_ptr<ValueExpr> trig, std::unique_ptr<ValueExpr> w, std::unique_ptr<ValueExpr> x, std::unique_ptr<ValueExpr> y, std::unique_ptr<ValueExpr> z)
-        :m_trig(std::move(trig)), m_w(std::move(w)), m_x(std::move(x)), m_y(std::move(y)), m_z(std::move(z)), m_triggered(false)
+        :m_trig(std::move(trig)), m_w(std::move(w)), m_x(std::move(x)), m_y(std::move(y)), m_z(std::move(z)), m_triggered(trig == nullptr)
     {
     }
     value_t get_value() override
     {
-        value_t triggered = m_trig->get_value();
-        if (!triggered)
+        if (m_trig)
         {
-            m_triggered = false;
-            m_roll = m_yaw = m_pitch = 0;
-            return 0;
+            value_t triggered = m_trig->get_value();
+            if (!triggered)
+            {
+                m_triggered = false;
+                m_roll = m_yaw = m_pitch = 0;
+                return 0;
+            }
         }
 
         //Steam axes are:
@@ -550,10 +553,15 @@ ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<Valu
         }
         else if (name == "quaternion")
         {
-            if (exprs.size() != 5)
+            switch (exprs.size())
+            {
+            case 4:
+                return new ValueQuaternion(nullptr, std::move(exprs[0]), std::move(exprs[1]), std::move(exprs[2]), std::move(exprs[3]));
+            case 5:
+                return new ValueQuaternion(std::move(exprs[0]), std::move(exprs[1]), std::move(exprs[2]), std::move(exprs[3]), std::move(exprs[4]));
+            default:
                 throw std::runtime_error("wrong number of arguments in function");
-            return new ValueQuaternion(std::move(exprs[0]), std::move(exprs[1]), std::move(exprs[2]), std::move(exprs[3]), std::move(exprs[4]));
-
+            }
         }
         else if (name == "get_x")
         {
@@ -594,7 +602,7 @@ ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<Valu
         else
             throw std::runtime_error("unknown function");
     }
-    catch (std::runtime_error e)
+    catch (std::runtime_error &e)
     {
         throw std::runtime_error(std::string(e.what()) + ": " + name);
     }
