@@ -216,9 +216,10 @@ The following commands are currently known:
  * 0xBA: returns some unknown information.
  * 0x87 0x03 R Blow Bhigh: Writes 16-bit value B into register R. Several writes can be combined into a single command, such as `0x87 0x06 R1 XL XH R2 YL YH`. The known registers are:
   - 0x30: Accelerometer: 0x00=disabled, 0x14=enabled.
-  - 0x08: Write 0x07 to disable mouse keys emulation.
-  - 0x07: Write 0x07 to disable mouse cursor emulation.
+  - 0x08: Write 0x07 to disable mouse keys emulation, 0x00 to enable.
+  - 0x07: Write 0x07 to disable mouse cursor emulation, 0x00 to enable.
   - 0x18: Write 0x00 to remove the margin of the right pad. By default touching the rim of the right pad does not generate events.
+  - 0x2d: Led intensity, from 0x00 to 0x64.
  * 0x8F: Send haptic feedback. See below.
 
 
