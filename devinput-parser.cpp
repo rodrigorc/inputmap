@@ -263,7 +263,7 @@ public:
         value_t x = m_x->get_value();
         value_t old = m_old;
         value_t fuzz = m_fuzz->get_value();
-	if (fuzz)
+	if (fuzz && x != 0)
         {
             if (old - fuzz / 2 < x && x < old + fuzz / 2)
                 x = old;
