@@ -53,6 +53,7 @@ void help(const char *name)
     printf("\t-v: Verbose output.\n");
     printf("\t-d: Run in background (daemonize) when all output devices have been created.\n");
     printf("\t-p <filename>: Write the PID into the given file. Useful to kill the program later.\n");
+    printf("\t-m <key>=<value>: Define a macro to be replaced in the ini file: {<key>} will be replaced with <value>.\n");
     exit(EXIT_FAILURE);
 }
 
@@ -270,7 +271,8 @@ FD find_input_device_from_section(std::vector<FoundInputDevice> &fids, const Ini
 int main2(int argc, char **argv)
 {
     int opt;
-    while ((opt = getopt(argc, argv, "vdp:")) != -1)
+    std::map<std::string, std::string> defines;
+    while ((opt = getopt(argc, argv, "vdp:m:")) != -1)
     {
         switch (opt)
         {
@@ -283,6 +285,21 @@ int main2(int argc, char **argv)
         case 'p':
             g_writepid = optarg;
             break;
+        case 'm':
+            {
+                std::string arg(optarg);
+                auto eq = arg.find('=');
+                if (eq == std::string::npos)
+                {
+                    fprintf(stderr, "%s error: argument to '-a' must have an '='\n", argv[0]);
+                    exit(1);
+                }
+                std::string name = arg.substr(0, eq);
+                std::string value = arg.substr(eq + 1);
+                defines[name] = value;
+            }
+            break;
+
         default:
             help(argv[0]);
         }
@@ -301,6 +318,34 @@ int main2(int argc, char **argv)
 
     std::string name = argv[optind];
     IniFile ini(name);
+    if (!defines.empty())
+    {
+        ini.preprocess_values([&defines](std::string v)
+        {
+            auto vv = v;
+            size_t start, end;
+            start = v.find('{');
+            while (start != std::string::npos)
+            {
+                end = v.find('}', start + 1);
+                if (end == std::string::npos)
+                    break;
+                std::string name = v.substr(start + 1, end - start - 1);
+                auto it = defines.find(name);
+                if (it == defines.end())
+                {
+                    fprintf(stderr, "Warning: macro '%s' used but not defined\n", name.c_str());
+                }
+                else
+                {
+                    v = v.substr(0, start) + it->second + v.substr(end + 1);
+                    end += it->second.size() - name.size() - 2; //2 for the '{' and '}'
+                }
+                start = v.find('{', end + 1);
+            }
+            return v;
+        });
+    }
     //ini.Dump(std::cout);
 
     std::list<std::shared_ptr<InputDevice>> inputs;

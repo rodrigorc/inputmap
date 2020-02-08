@@ -58,6 +58,11 @@ class IniEntry
 friend class IniFile;
 friend class IniSection;
 public:
+    template<typename F>
+    void preprocess_value(F filter)
+    {
+        m_value = filter(std::move(m_value));
+    }
     const std::string name() const
     { return m_name; }
     const std::string value() const
@@ -73,7 +78,12 @@ friend class IniFile;
 public:
     const std::string name() const
     { return m_name; }
-
+    template<typename F>
+    void preprocess_values(F filter)
+    {
+        for (auto &v : m_entries)
+            v.preprocess_value(filter);
+    }
     std::string find_single_value(const std::string &name) const;
     std::vector<std::string> find_multi_value(const std::string &name) const;
 
@@ -93,6 +103,12 @@ class IniFile
 {
 public:
     IniFile(const std::string &fileName);
+    template<typename F>
+    void preprocess_values(F filter)
+    {
+        for (auto &s : m_sections)
+            s.preprocess_values(filter);
+    }
     void Dump(std::ostream &os);
 
     const IniSection *find_single_section(const std::string &name) const;
