@@ -117,16 +117,20 @@ For example, to create a virtual absolute axis from two buttons (useful for the 
     [output]
     ABS_HAT0X=(keyb.KEY_A,keyb.KEY_D)
     ABS_HAT0Y=(keyb.KEY_S,keyb.KEY_W)
+
 ## Systemd
 You can start inputmap from udev when the device is connected.
+
 ### inputmap config - use a macro to uniquely identify devices.
     [steam]
     name=Steam
     mouse=N
     serial={SERIAL}
+
 ### udev rule - pass identifer to systemd unit
     # /etc/udev/rules.d/90-inputmap.rules
-    SUBSYSTEM=="input", ATTRS{name}=="Wireless Steam Controller", TAG+="systemd", ENV{SYSTEMD_WANTS}="inputmap@%s{uniq}.service"
+    SUBSYSTEM=="input", ATTRS{name}=="*Steam Controller", TAG+="systemd", ENV{SYSTEMD_WANTS}="inputmap@%s{uniq}.service"
+
 ### systemd unit - pass systemd instance as macro
     # /etc/systemd/system/inputmap@.service
     [Unit]
