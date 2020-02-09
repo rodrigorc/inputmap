@@ -492,7 +492,10 @@ int main2(int argc, char **argv)
             }
         }
         for (auto &d : deletes)
+        {
             inputs.remove(d);
+            g_exit = true;
+        }
 
         for (auto &v : variables)
             v.second.evaluate();
