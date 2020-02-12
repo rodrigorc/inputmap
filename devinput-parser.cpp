@@ -498,7 +498,7 @@ public:
     {
         value_t y = m_y->get_value();
         value_t x = m_x->get_value();
-        value_t rot = m_rotation? m_rotation->get_value() * (M_PI/180) : 0;
+        value_t rot = m_rotation? m_rotation->get_value() : 0;
         m_angle = atan2(y, x) + rot;
         m_radius = hypot(x, y);
         return m_angle;
