@@ -36,6 +36,8 @@ struct ValueExpr
         Yaw,
         Pitch,
         Roll,
+        Angle,
+        Radius,
     };
     virtual ~ValueExpr() {}
     virtual value_t get_value() =0;

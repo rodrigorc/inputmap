@@ -191,6 +191,16 @@ value_t func_between(value_t a, value_t b, value_t c)
         return c <= a && a < b;
 }
 
+value_t func_between_angle(value_t angle, value_t from, value_t to)
+{
+    while (to < from)
+        to += 2 * M_PI;
+    while (angle < from)
+        angle += 2 * M_PI;
+    bool res = angle < to;
+    return res;
+}
+
 value_t func_bool(value_t a)
 {
     return a != 0;
@@ -448,7 +458,7 @@ public:
         //printf("Q: X=%f Y=%f Z=%f   Ang=%f\n", ax, ay, az, aa);
         return m_roll;
     }
-    virtual value_t get_field(Field field)
+    value_t get_field(Field field) override
     {
         switch (field)
         {
@@ -468,6 +478,54 @@ private:
     bool m_triggered;
     Quaternion m_quat0;
     value_t m_roll, m_pitch, m_yaw;
+};
+
+class ValuePolar : public ValueExpr
+{
+public:
+    ValuePolar(std::unique_ptr<ValueExpr> x, std::unique_ptr<ValueExpr> y)
+        :m_x(std::move(x)), m_y(std::move(y)), m_angle(0), m_radius(0)
+    {
+    }
+    void add_rotation(std::unique_ptr<ValueExpr> rot)
+    {
+        if (!m_rotation)
+            m_rotation = std::move(rot);
+        else
+            m_rotation = std::unique_ptr<ValueExpr>(new ValueOper(InputToken_PLUS, m_rotation.release(), rot.release()));
+    }
+    value_t get_value() override
+    {
+        value_t y = m_y->get_value();
+        value_t x = m_x->get_value();
+        value_t rot = m_rotation? m_rotation->get_value() * (M_PI/180) : 0;
+        m_angle = atan2(y, x) + rot;
+        m_radius = hypot(x, y);
+        return m_angle;
+    }
+    value_t get_field(Field field) override
+    {
+        switch (field)
+        {
+        case Field::X:
+            return m_x->get_value();
+        case Field::Y:
+            return m_y->get_value();
+        case Field::Angle:
+            return m_angle;
+        case Field::Radius:
+            return m_radius;
+        default:
+            return 0;
+        }
+    }
+    value_t get_angle()
+    {
+        return m_radius;
+    }
+private:
+    std::unique_ptr<ValueExpr> m_x, m_y, m_rotation;
+    value_t m_angle, m_radius;
 };
 
 class ValueField : public ValueExpr
@@ -497,6 +555,16 @@ ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<Valu
         else if (name == "between")
         {
             return create_func_ex(func_between, std::move(exprs));
+        }
+        else if (name == "between_angle")
+        {
+            return create_func_ex(func_between_angle, std::move(exprs));
+        }
+        if (name == "deg")
+        {
+            if (exprs.size() != 1)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueOper(InputToken_MULT, exprs[0].release(), new ValueConst(M_PI/180));
         }
         else if (name == "mouse")
         {
@@ -563,6 +631,12 @@ ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<Valu
                 throw std::runtime_error("wrong number of arguments in function");
             }
         }
+        else if (name == "polar")
+        {
+            if (exprs.size() != 2)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValuePolar(std::move(exprs[0]), std::move(exprs[1]));
+        }
         else if (name == "get_x")
         {
             if (exprs.size() != 1)
@@ -598,6 +672,28 @@ ValueExpr* create_func(const std::string &name, std::vector<std::unique_ptr<Valu
             if (exprs.size() != 1)
                 throw std::runtime_error("wrong number of arguments in function");
             return new ValueField(std::move(exprs[0]), ValueExpr::Field::Yaw);
+        }
+        else if (name == "get_angle")
+        {
+            if (exprs.size() != 1)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueField(std::move(exprs[0]), ValueExpr::Field::Angle);
+        }
+        else if (name == "get_radius")
+        {
+            if (exprs.size() != 1)
+                throw std::runtime_error("wrong number of arguments in function");
+            return new ValueField(std::move(exprs[0]), ValueExpr::Field::Radius);
+        }
+        else if (name == "rotate")
+        {
+            if (exprs.size() != 2)
+                throw std::runtime_error("wrong number of arguments in function");
+            auto polar = dynamic_cast<ValuePolar*>(exprs[0].get());
+            if (!polar)
+                throw std::runtime_error("argument to 'rotate' must be a polar value");
+            polar->add_rotation(std::move(exprs[1]));
+            return exprs[0].release();
         }
         else
             throw std::runtime_error("unknown function");
