@@ -381,7 +381,9 @@ int main2(int argc, char **argv)
         for (auto &entry : *vars)
         {
             std::unique_ptr<ValueExpr> exp = parse_ref(entry.value(), inputFinder);
-            variables.emplace(entry.name(), Variable(std::move(exp)));
+            Variable var(std::move(exp));
+            var.evaluate(); //to get the right default value, particularly for constants
+            variables.emplace(entry.name(), std::move(var));
         }
     }
 
