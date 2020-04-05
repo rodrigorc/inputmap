@@ -210,6 +210,9 @@ bool SteamController::on_poll(int event)
         return false;
 
     uint8_t type = data[2];
+    if (type == 3 && data[4] == 0x01) //Disconnect event
+        throw std::runtime_error("steam controller powerer off");
+
     if (type != 1) //input
         return false;
 
