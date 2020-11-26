@@ -25,6 +25,7 @@ along with inputmap.  If not, see <http://www.gnu.org/licenses/>.
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <stdexcept>
 #include "unique_handle.h"
 
 struct FileCloser

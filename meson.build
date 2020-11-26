@@ -1,7 +1,7 @@
 project('inputmap', ['c', 'cpp'], default_options : ['cpp_std=gnu++11'])
 
 
-lemon_exe = executable('lemon', ['lemon/lemon.c'])
+lemon_exe = executable('lemon', ['lemon/lemon.c'], native : true)
 
 lemon = generator(lemon_exe,
   output  : ['@BASENAME@.cpp', '@BASENAME@.h'],
